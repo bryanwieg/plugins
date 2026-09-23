@@ -99,6 +99,33 @@ class Shared extends BaseModel
             ));
         }
 
+
+        if (!empty((string)$managed->hw_settings_overwrite)) {
+            $messages->appendMessage(new Message(
+                gettext('Per-interface hardware offload overrides on the managed WAN are not supported by version 1; use global hardware settings or clear the WAN override before enabling.'),
+                $this->managed_interface->getInternalXMLTagName()
+            ));
+        }
+
+        if (!empty((string)$managed->media) || !empty((string)$managed->mediaopt)) {
+            $messages->appendMessage(new Message(
+                gettext('Custom media/mediaopt settings on the managed WAN are not supported by version 1 because they belong to the node-local carrier.'),
+                $this->managed_interface->getInternalXMLTagName()
+            ));
+        }
+
+        if (!empty($config->virtualip->vip)) {
+            foreach ($config->virtualip->vip->children() as $vip) {
+                if ((string)$vip->mode === 'carp' && (string)$vip->interface === $interface) {
+                    $messages->appendMessage(new Message(
+                        gettext('Remove CARP VIPs from the managed DHCP WAN before enabling WAN HA DHCP. CARP remains the cluster authority on other interfaces, but the ISP-facing WAN itself must not carry a CARP VIP.'),
+                        $this->managed_interface->getInternalXMLTagName()
+                    ));
+                    break;
+                }
+            }
+        }
+
         return $messages;
     }
 }
