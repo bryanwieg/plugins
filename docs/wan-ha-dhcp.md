@@ -550,11 +550,14 @@ Migration should be wizard-assisted and deliberately reversible.
 ### 22.1 Preconditions
 
 - Existing two-node OPNsense CARP HA is healthy.
+- The managed ISP-facing DHCP WAN has **no CARP VIPs assigned to it**. Native CARP remains authoritative on the cluster's other HA interfaces, but the ISP-facing WAN itself must not emit a CARP virtual MAC.
 - pfsync is configured if session preservation is desired.
 - Selected managed interface is IPv4 DHCP.
 - Each node has a compatible local carrier available.
 - Shared L2 ISP segment can see whichever node is active.
 - Hypervisors/switches allow the shared MAC to move between ports/vNICs (e.g. Hyper-V MAC spoofing where required).
+- Native OPNsense WAN MAC spoofing is cleared; the plugin shared MAC is the only MAC source of truth.
+- v1 rejects per-interface WAN hardware-offload overrides and custom media/mediaopt settings because those settings belong to the node-local carrier after migration. Global hardware settings continue to apply to physical interfaces; explicit WAN MTU is handled separately.
 
 ### 22.2 Safe deployment outline
 
@@ -638,6 +641,11 @@ Prove on OPNsense 26.7:
 - An administratively fenced BACKUP carrier still exposes a reliable physical/media-link health signal suitable for local eligibility checks.
 - Reboot recreates the abstraction detached by default.
 - OPNsense can assign the logical WAN to the abstraction normally.
+- OPNsense classifies `wanha0lagg` as virtual rather than physical, and it does not collide with the core-managed `^lagg` device family.
+- Normal `interfaces_configure()` boot ordering invokes the plugin device-preparation callback before configuring a logical WAN assigned to `wanha0lagg`.
+- An unset WAN MTU does not force the carrier to the empty LAGG's default MTU; an explicitly configured WAN MTU can be applied safely to the carrier before attachment.
+- While the BACKUP carrier is administratively fenced/down, its physical/media link state remains observable well enough to distinguish local carrier failure from intentional standby fencing.
+- No unexpected frames using either the shared MAC or the carrier's hardware MAC escape during attach/detach transitions beyond behavior explicitly accepted by the gate.
 
 If LAGG cannot meet these requirements cleanly without brittle hooks, select another FreeBSD-native abstraction before proceeding. Do not paper over a failed gate with driver-specific code.
 
@@ -650,6 +658,9 @@ Prove:
 - Adding the active carrier causes native DHCP to converge automatically, or identify the smallest documented/supported OPNsense reconfigure action required.
 - Removing/re-adding the carrier does not require private PHP/core manipulation.
 - Existing WAN settings continue to apply.
+- Packet capture confirms the promoted node sends the configured shared MAC as DHCP `chaddr` and preserves any explicitly configured native OPNsense DHCP client identifier/hostname behavior.
+- Determine whether a dhclient started while detached observes the post-attach shared MAC automatically. If not, use the documented `configctl interface reconfigure <logical-interface>` path after shared-MAC installation rather than private DHCP internals.
+- Record the per-interface lease database behavior (currently `/var/db/dhclient.leases.<device>`) and confirm that lack of lease-file replication does not break basic failover.
 
 ### Gate C — delayed failback
 
@@ -669,6 +680,8 @@ With both nodes using the same logical WAN kernel name:
 - Hard-stop/power-off MASTER.
 - Confirm peer takes ownership and receives the same DHCP public IPv4 where the ISP permits it.
 - Verify whether the established flow survives.
+- Measure the planned-failover timeline from old-MASTER carrier detach to new-MASTER carrier attach and capture the ISP-facing segment for shared-MAC overlap/flapping.
+- If measurable overlap is unsafe, test the smallest fixed internal promotion-settle delay needed; do not expose another user tuning knob unless evidence requires one.
 - Repeat with pfsync defer off/on and document observed behavior without silently changing the user's setting.
 
 ## 26. Failure test matrix
@@ -697,6 +710,12 @@ At minimum test:
 20. Hyper-V MAC spoofing disabled — validation/diagnostics must make failure understandable.
 21. Physical Ethernet carrier on one node and Hyper-V/VirtIO/VMware carrier on peer.
 22. Existing VLAN interface as local carrier, if Gate A confirms support.
+23. Existing CARP VIP on the managed WAN — enablement MUST be rejected until removed.
+24. Native WAN spoof MAC left configured — enablement MUST be rejected.
+25. Per-interface hardware override or media/mediaopt settings on managed WAN — v1 MUST reject rather than silently misapply them.
+26. Planned failover packet capture confirms bounded/no unsafe shared-MAC overlap.
+27. Detach/reattach restores the carrier's original hardware MAC as expected.
+28. Interface reconfigure on MASTER and BACKUP cannot accidentally reattach the BACKUP carrier.
 
 ## 27. Security and safety invariants
 
@@ -864,6 +883,8 @@ Only these implementation questions remain intentionally unresolved:
 3. Does native DHCP automatically reconverge on member/carrier reattachment, or is one documented `configctl` reconfigure action required?
 4. Which failback-hold mechanism prevents normal preemption while preserving immediate takeover after loss of the current MASTER?
 5. Is explicit lease-state replication necessary for any supported use case after same-MAC/native-DHCP testing? The default answer remains no unless evidence says otherwise.
+6. Does an administratively down/detached carrier on supported physical and virtual NICs retain a reliable media-link signal for standby health checks?
+7. Is any promotion-settle delay required to prevent unsafe transient same-MAC overlap during planned CARP transitions?
 
 No other speculative subsystem should be introduced until one of these gates proves it necessary.
 
@@ -884,6 +905,8 @@ Implementation work must follow `resolver-plugins/plugins/AGENTS.md`, including:
 
 Review current OPNsense/FreeBSD sources for the target series before coding. Particularly relevant current paths include:
 
+- OPNsense 26.7 build baseline:
+  - Python 3.13 (`config/26.7/build.conf: PYTHON=313` in `opnsense/tools`).
 - OPNsense core:
   - `src/opnsense/scripts/monit/carp_status.php`
   - `src/etc/rc.filter_synchronize`
