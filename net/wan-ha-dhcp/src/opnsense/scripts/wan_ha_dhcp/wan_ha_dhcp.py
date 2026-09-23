@@ -99,7 +99,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    return build_parser().parse_args().func(build_parser().parse_args())
+    args = build_parser().parse_args()
+    return args.func(args)
 
 
 if __name__ == "__main__":
