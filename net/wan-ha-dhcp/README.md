@@ -47,12 +47,22 @@ normal plugin lint target once a target build environment is available.
 
 ## Dry-run controller inspection on OPNsense
 
-The Python CLI does not execute the returned command plan:
+The Python CLI does not execute the returned command plan.  Once the plugin
+settings exist in OPNsense, prefer loading them directly:
+
+```sh
+/usr/local/bin/python3 /usr/local/opnsense/scripts/wan_ha_dhcp/wan_ha_dhcp.py \
+    status --from-config
+```
+
+For isolated pre-configuration experiments, explicit arguments remain
+available:
 
 ```sh
 /usr/local/bin/python3 /usr/local/opnsense/scripts/wan_ha_dhcp/wan_ha_dhcp.py \
     status \
     --enabled \
+    --managed-by-wanha \
     --carrier ix0 \
     --shared-mac 02:11:22:33:44:55
 ```
