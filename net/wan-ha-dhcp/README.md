@@ -279,6 +279,78 @@ Do not destroy `wanha0lagg` if an OPNsense logical interface is assigned to
 it.  The package uninstall guard enforces the same safety rule.
 
 
+
+## Codex start here
+
+The static scaffold has been audited as far as practical without an OPNsense
+appliance.  Continue in this order and record evidence in the design/runbook
+before enabling automatic mutation:
+
+1. **Install/build validation on OPNsense 26.7+**
+   - Build the package using the fork's normal plugin tooling.
+   - Run `pluginctl -v`, PHP/plugin lint, the Python unit suite, and verify the
+     MVC page/API load without warnings.
+   - Confirm `wanha0lagg` is reported as a plugin/virtual device rather than a
+     physical interface or a core-managed `laggN`.
+   - Confirm the runtime ownership marker is created only when the plugin
+     creates the virtual device.
+
+2. **Gate A: virtual WAN/fencing**
+   - Use an isolated/dedicated carrier.
+   - Prove member attach/detach, MAC ordering, MTU ordering, native-MAC restore,
+     link/media observability while standby-fenced, reboot recreation, VLAN
+     carrier behavior if required, and zero unintended upstream frames.
+   - If the renamed single-member LAGG fails any durable requirement, change
+     the primitive before adding controller execution.
+
+3. **Gate B: native DHCP**
+   - Keep OPNsense DHCP authoritative.
+   - Packet-capture DHCP and prove `chaddr`, Option 61/hostname, configured
+     send/request options, and VLAN priority behavior.
+   - Determine whether a detached-started dhclient observes the shared MAC
+     after attachment.  If not, use only the supported
+     `configctl interface reconfigure <logical-interface>` path after MAC
+     installation.
+   - Verify gateway, route, DNS, NAT, dpinger, and `rc.newwanip` behavior.
+
+4. **Gate C: failback**
+   - Validate temporary runtime `net.inet.carp.preempt=0` behavior against a
+     living MASTER and against loss of that MASTER.
+   - Preserve the administrator's original preemption policy exactly.
+   - Do not use Internet/gateway reachability as the hold-health signal.
+
+5. **Gate D: pfsync/session continuity**
+   - Confirm both nodes' PF state uses the same `wanha0lagg` identity.
+   - Measure state survival across planned and hard failover with the same
+     public DHCP address.
+   - Capture the shared L2 segment and prove there is no deliberate dual-owner
+     interval.
+
+Only after Gates A/B are proven should Codex add:
+- a command executor around the existing pure planner;
+- one serialized transition lock;
+- the CARP syshook fast path;
+- the periodic reconcile service;
+- native CARP service-health integration for node-local WAN incapacity.
+
+Do not add lease replication, custom DHCP, Internet-health election, a second
+CARP protocol, driver-specific NIC branches, or OPNsense core patches unless a
+recorded gate failure demonstrates that one is required.
+
+### Known residual risks that are not code bugs
+
+- Ordinary two-node CARP cannot perfectly fence a network partition where both
+  nodes independently become MASTER; the plugin follows native CARP and does
+  not add a witness.
+- Same-IP session preservation depends on the ISP reissuing the same public
+  DHCP address to the shared client identity.
+- Hypervisors/switches must permit the shared source MAC to move between nodes
+  (for example Hyper-V MAC spoofing and no conflicting sticky/port-security
+  policy).
+- A locally administered generated MAC is standards-compliant but cannot be
+  guaranteed acceptable to every ISP; manual/imported MAC remains supported.
+
+
 ## Development rule
 
 Do not add an automatic execution path merely to make the plugin appear
