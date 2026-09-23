@@ -74,6 +74,30 @@ class DesiredStateTests(unittest.TestCase):
             ),
         )
 
+    def test_pre_migration_state_is_passive(self):
+        settings = core.Settings(
+            enabled=False,
+            carrier="ix0",
+            shared_mac="02:11:22:33:44:55",
+            managed_by_wanha=False,
+        )
+        observed = self.observed()
+        plan = core.plan_reconcile(settings, observed)
+        self.assertEqual(plan.desired.attachment, core.DesiredAttachment.UNMANAGED)
+        self.assertEqual(plan.commands, [])
+
+    def test_enabled_but_not_migrated_is_still_passive(self):
+        settings = core.Settings(
+            enabled=True,
+            carrier="ix0",
+            shared_mac="02:11:22:33:44:55",
+            managed_by_wanha=False,
+        )
+        observed = self.observed()
+        plan = core.plan_reconcile(settings, observed)
+        self.assertEqual(plan.desired.attachment, core.DesiredAttachment.UNMANAGED)
+        self.assertEqual(plan.commands, [])
+
     def test_master_with_healthy_carrier_attaches(self):
         desired = core.desired_state(self.settings(), self.observed())
         self.assertEqual(desired.attachment, core.DesiredAttachment.ATTACHED)
@@ -124,7 +148,8 @@ class PlannerTests(unittest.TestCase):
         )
         plan = core.plan_reconcile(self.settings(), observed)
         self.assertEqual(plan.commands[0].argv[-2:], ("-laggport", "ix0"))
-        self.assertEqual(plan.commands[1].argv[-1], "down")
+        self.assertEqual(plan.commands[1].argv, ("/sbin/ifconfig", "ix0", "down"))
+        self.assertEqual(plan.commands[2].argv, ("/sbin/ifconfig", core.WANHA_DEVICE, "down"))
 
     def test_correct_active_state_is_idempotent(self):
         observed = core.ObservedState(
@@ -161,8 +186,10 @@ class PlannerTests(unittest.TestCase):
         )
         plan = core.plan_reconcile(self.settings(), observed)
         self.assertEqual(plan.commands[0].argv[-2:], ("-laggport", "ix0"))
-        self.assertEqual(plan.commands[1].argv[-2:], ("-laggport", "hn1"))
-        self.assertEqual(plan.commands[2].argv[-1], "down")
+        self.assertEqual(plan.commands[1].argv, ("/sbin/ifconfig", "ix0", "down"))
+        self.assertEqual(plan.commands[2].argv[-2:], ("-laggport", "hn1"))
+        self.assertEqual(plan.commands[3].argv, ("/sbin/ifconfig", "hn1", "down"))
+        self.assertEqual(plan.commands[4].argv, ("/sbin/ifconfig", core.WANHA_DEVICE, "down"))
 
     def test_non_lagg_wanha_collision_is_not_mutated(self):
         observed = core.ObservedState(
@@ -221,7 +248,7 @@ class PlannerTests(unittest.TestCase):
     def test_down_carrier_is_brought_up_before_lagg_attachment(self):
         observed = core.ObservedState(
             carp_states=("MASTER",),
-            carrier=core.InterfaceSnapshot("ix0", exists=True, up=False, link_up=True),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=False, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
                 core.WANHA_DEVICE,
                 exists=True,
@@ -239,7 +266,7 @@ class PlannerTests(unittest.TestCase):
     def test_promotion_attaches_before_mac_then_up(self):
         observed = core.ObservedState(
             carp_states=("MASTER",),
-            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
                 core.WANHA_DEVICE,
                 exists=True,
