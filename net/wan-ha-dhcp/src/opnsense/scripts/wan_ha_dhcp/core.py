@@ -31,6 +31,7 @@ class GlobalRole(str, Enum):
 class DesiredAttachment(str, Enum):
     ATTACHED = "ATTACHED"
     FENCED = "FENCED"
+    UNMANAGED = "UNMANAGED"
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class Settings:
     enabled: bool
     carrier: str
     shared_mac: str
+    managed_by_wanha: bool = True
     managed_mtu: int | None = None
 
 
@@ -151,6 +153,13 @@ def reduce_carp_role(states: Iterable[str]) -> GlobalRole:
 
 
 def desired_state(settings: Settings, observed: ObservedState) -> DesiredState:
+    if not settings.managed_by_wanha:
+        return DesiredState(
+            GlobalRole.INDETERMINATE,
+            DesiredAttachment.UNMANAGED,
+            "managed OPNsense interface is not assigned to wanha0",
+        )
+
     if not settings.enabled:
         return DesiredState(
             GlobalRole.INDETERMINATE,
@@ -228,6 +237,10 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
     member_present = settings.carrier in members
     foreign_members = tuple(member for member in members if member != settings.carrier)
 
+    if desired.attachment is DesiredAttachment.UNMANAGED:
+        # Pre-migration / configuration-only state. Never touch the carrier.
+        return plan
+
     if desired.attachment is DesiredAttachment.FENCED:
         # Remove every observed member.  This also fences a stale previous
         # carrier after a node-local configuration change.
@@ -236,6 +249,24 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
                 Command(
                     ("/sbin/ifconfig", WANHA_DEVICE, "-laggport", member),
                     "fence ISP Layer-2 path before cleanup",
+                )
+            )
+            plan.commands.append(
+                Command(
+                    ("/sbin/ifconfig", member, "down"),
+                    "administratively silence detached ISP carrier",
+                )
+            )
+        if (
+            not members
+            and observed.carrier is not None
+            and observed.carrier.exists
+            and observed.carrier.up
+        ):
+            plan.commands.append(
+                Command(
+                    ("/sbin/ifconfig", settings.carrier, "down"),
+                    "keep the managed standby ISP carrier administratively silent",
                 )
             )
         if wanha.exists and wanha.up:
@@ -287,6 +318,12 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
             Command(
                 ("/sbin/ifconfig", WANHA_DEVICE, "-laggport", member),
                 "remove stale carrier before ownership transition",
+            )
+        )
+        plan.commands.append(
+            Command(
+                ("/sbin/ifconfig", member, "down"),
+                "silence stale detached carrier before attaching the desired path",
             )
         )
 
@@ -422,7 +459,7 @@ def evaluate_failback(
         FailbackState(healthy_since),
         False,
         remaining,
-        "preferred node is in recovery hold while peer remains MASTER",
+        "recovered node is in failback hold while peer remains MASTER",
     )
 
 
