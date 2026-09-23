@@ -194,6 +194,8 @@ Verify:
 - DHCP `chaddr` is the configured shared MAC after promotion;
 - Option 61/hostname behavior matches the existing native OPNsense WAN
   configuration;
+- any configured native DHCP send/request options and DHCP VLAN priority
+  continue to appear on the wire as expected for the ISP;
 - the resulting address, subnet, gateway, DNS, route, NAT, and gateway monitor
   are created through normal OPNsense mechanisms.
 
