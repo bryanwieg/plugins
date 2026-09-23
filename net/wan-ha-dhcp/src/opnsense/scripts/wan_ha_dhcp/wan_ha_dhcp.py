@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 
@@ -76,6 +77,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         carp_states=carp_states,
         carp_allowed=carp_allowed,
         carp_maintenance=carp_maintenance,
+        wanha_owned=os.path.isfile("/var/run/wan-ha-dhcp/device.wanha0lagg"),
         carrier=carrier,
         wanha=wanha,
     )
