@@ -146,6 +146,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_demotion_fences_before_down(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("BACKUP",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
             wanha=core.InterfaceSnapshot(
@@ -166,6 +167,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_correct_active_state_is_idempotent(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
             wanha=core.InterfaceSnapshot(
@@ -184,6 +186,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_fenced_state_removes_all_stale_members(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("BACKUP",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
             wanha=core.InterfaceSnapshot(
@@ -206,6 +209,7 @@ class PlannerTests(unittest.TestCase):
     def test_foreign_member_is_detached_but_not_forced_down(self):
         settings = core.Settings(True, "hn1", "02:11:22:33:44:55")
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("hn1", exists=True, up=True, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
@@ -224,6 +228,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_member_present_but_carrier_admin_down_is_recovered(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=False, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
@@ -240,8 +245,30 @@ class PlannerTests(unittest.TestCase):
         plan = core.plan_reconcile(self.settings(), observed)
         self.assertIn(("/sbin/ifconfig", "ix0", "up"), [cmd.argv for cmd in plan.commands])
 
+    def test_unowned_same_name_failover_lagg_is_not_mutated(self):
+        observed = core.ObservedState(
+            wanha_owned=False,
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=True,
+                link_up=True,
+                mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
+                mtu=1500,
+                lagg_members=("ix0",),
+            ),
+        )
+        plan = core.plan_reconcile(self.settings(), observed)
+        self.assertEqual(plan.desired.attachment, core.DesiredAttachment.FENCED)
+        self.assertEqual(plan.commands, [])
+        self.assertTrue(plan.warnings)
+
     def test_non_lagg_wanha_collision_is_not_mutated(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
             wanha=core.InterfaceSnapshot(
@@ -261,6 +288,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_non_failover_wanha_is_not_mutated(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
@@ -279,6 +307,7 @@ class PlannerTests(unittest.TestCase):
     def test_unset_mtu_does_not_copy_empty_lagg_default_to_carrier(self):
         settings = core.Settings(True, "ix0", "02:11:22:33:44:55", managed_mtu=None)
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=9000),
             wanha=core.InterfaceSnapshot(
@@ -300,6 +329,7 @@ class PlannerTests(unittest.TestCase):
     def test_custom_mtu_is_applied_to_carrier_before_attachment(self):
         settings = core.Settings(True, "ix0", "02:11:22:33:44:55", managed_mtu=1400)
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
@@ -318,6 +348,7 @@ class PlannerTests(unittest.TestCase):
     def test_active_explicit_mtu_drift_is_reconciled_on_lagg(self):
         settings = core.Settings(True, "ix0", "02:11:22:33:44:55", managed_mtu=1400)
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
@@ -344,6 +375,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_down_carrier_is_brought_up_before_lagg_attachment(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=False, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
@@ -362,6 +394,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_promotion_attaches_before_mac_then_up(self):
         observed = core.ObservedState(
+            wanha_owned=True,
             carp_states=("MASTER",),
             carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
             wanha=core.InterfaceSnapshot(
