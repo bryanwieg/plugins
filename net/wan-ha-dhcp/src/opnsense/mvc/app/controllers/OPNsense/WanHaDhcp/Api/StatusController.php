@@ -15,15 +15,40 @@ class StatusController extends ApiControllerBase
     {
         $backend = new Backend();
         $devices = json_decode($backend->configdRun('interface list assign-opts'), true) ?? [];
-        $result = [];
+        $config = Config::getInstance()->object();
+        $shared = new Shared();
+        $managedInterface = (string)$shared->managed_interface ?: 'wan';
+        $assigned = [];
+        $vlanParents = [];
 
+        if (!empty($config->interfaces)) {
+            foreach ($config->interfaces->children() as $logical => $interface) {
+                if (!empty((string)$interface->if) && $logical !== $managedInterface) {
+                    $assigned[(string)$interface->if] = $logical;
+                }
+            }
+        }
+
+        if (!empty($config->vlans)) {
+            foreach ($config->vlans->children() as $vlan) {
+                if (!empty((string)$vlan->if)) {
+                    $vlanParents[(string)$vlan->if] = true;
+                }
+            }
+        }
+
+        $result = [];
         foreach ($devices as $name => $details) {
-            if ($name === 'wanha0') {
+            if ($name === 'wanha0' || isset($assigned[$name])) {
                 continue;
             }
 
             $group = $details['optgroup'] ?? '';
             if (!in_array($group, ['hardware', 'vlan'], true)) {
+                continue;
+            }
+
+            if ($group === 'hardware' && isset($vlanParents[$name])) {
                 continue;
             }
 
