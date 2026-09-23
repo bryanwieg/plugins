@@ -4,6 +4,7 @@ namespace OPNsense\WanHaDhcp;
 
 use OPNsense\Base\BaseModel;
 use OPNsense\Base\Messages\Message;
+use OPNsense\Core\Backend;
 use OPNsense\Core\Config;
 
 class Shared extends BaseModel
@@ -30,6 +31,27 @@ class Shared extends BaseModel
                     $this->shared_mac->getInternalXMLTagName()
                 ));
             }
+        }
+
+        $local = new Local();
+        if (empty(trim((string)$local->carrier))) {
+            $messages->appendMessage(new Message(
+                gettext('Configure a valid local WAN carrier on this node before enabling WAN HA DHCP.'),
+                $this->enabled->getInternalXMLTagName()
+            ));
+        } elseif ($local->performValidation(true)->count() !== 0) {
+            $messages->appendMessage(new Message(
+                gettext('The node-local WAN carrier configuration is not valid.'),
+                $this->enabled->getInternalXMLTagName()
+            ));
+        }
+
+        $ifconfig = json_decode((new Backend())->configdRun('interface list ifconfig'), true) ?? [];
+        if (empty($ifconfig['wanha0']['laggproto'])) {
+            $messages->appendMessage(new Message(
+                gettext('wanha0 must exist as a LAGG interface before WAN HA DHCP can be enabled.'),
+                $this->enabled->getInternalXMLTagName()
+            ));
         }
 
         $interface = (string)$this->managed_interface;
