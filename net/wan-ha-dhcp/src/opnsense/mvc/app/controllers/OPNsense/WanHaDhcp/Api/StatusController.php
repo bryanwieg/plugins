@@ -88,6 +88,7 @@ class StatusController extends ApiControllerBase
 
         $managedName = (string)$shared->managed_interface ?: 'wan';
         $managed = !empty($config->interfaces->$managedName) ? $config->interfaces->$managedName : null;
+        $syncItems = array_filter(explode(',', (string)$hasync->syncitems));
 
         return [
             'global_role' => $globalRole,
@@ -101,6 +102,7 @@ class StatusController extends ApiControllerBase
                 'pfsync_version' => (string)$hasync->pfsyncversion,
                 'pfsync_defer' => (string)$hasync->pfsyncdefer,
                 'xmlrpc_target' => (string)$hasync->synchronizetoip,
+                'plugin_sync_enabled' => in_array('wan-ha-dhcp', $syncItems, true),
             ],
             'managed' => [
                 'name' => $managedName,
