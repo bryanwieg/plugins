@@ -280,6 +280,13 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         )
 
     if not member_present:
+        if observed.carrier is not None and not observed.carrier.up:
+            plan.commands.append(
+                Command(
+                    ("/sbin/ifconfig", settings.carrier, "up"),
+                    "bring local carrier administratively up before adding it to the LAGG",
+                )
+            )
         plan.commands.append(
             Command(
                 ("/sbin/ifconfig", WANHA_DEVICE, "laggport", settings.carrier),
