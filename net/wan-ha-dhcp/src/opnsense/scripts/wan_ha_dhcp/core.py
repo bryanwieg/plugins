@@ -346,7 +346,7 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         )
 
     if not member_present:
-        target_mtu = settings.managed_mtu if settings.managed_mtu is not None else wanha.mtu
+        target_mtu = settings.managed_mtu
         if (
             target_mtu is not None
             and observed.carrier is not None
