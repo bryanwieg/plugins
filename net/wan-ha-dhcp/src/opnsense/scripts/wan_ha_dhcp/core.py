@@ -40,6 +40,7 @@ class InterfaceSnapshot:
     up: bool = False
     link_up: bool = False
     mac: str | None = None
+    lagg_protocol: str | None = None
     lagg_members: tuple[str, ...] = ()
 
 
@@ -198,6 +199,18 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
     plan = Plan(desired=desired)
 
     wanha = observed.wanha or InterfaceSnapshot(name=WANHA_DEVICE, exists=False)
+
+    if wanha.exists and wanha.lagg_protocol is None:
+        plan.desired = DesiredState(
+            desired.role,
+            DesiredAttachment.FENCED,
+            "wanha0 exists but is not the expected LAGG abstraction",
+        )
+        plan.warnings.append(
+            "refusing to mutate an existing non-LAGG interface named wanha0"
+        )
+        return plan
+
     members = tuple(wanha.lagg_members)
     member_present = settings.carrier in members
     foreign_members = tuple(member for member in members if member != settings.carrier)
@@ -384,6 +397,7 @@ def parse_interface_snapshot(name: str, ifconfig_text: str) -> InterfaceSnapshot
     up = False
     link_up = False
     mac: str | None = None
+    lagg_protocol: str | None = None
     members: list[str] = []
     exists = False
 
@@ -402,6 +416,10 @@ def parse_interface_snapshot(name: str, ifconfig_text: str) -> InterfaceSnapshot
                 mac = stripped.split()[1].lower()
             elif stripped.startswith("status:"):
                 link_up = stripped.split(":", 1)[1].strip().lower() == "active"
+            elif stripped.startswith("laggproto "):
+                parts = stripped.split()
+                if len(parts) >= 2:
+                    lagg_protocol = parts[1]
             elif stripped.startswith("laggport:"):
                 # Typical FreeBSD form: laggport: ix0 flags=...
                 member = stripped.split()[1]
@@ -413,5 +431,6 @@ def parse_interface_snapshot(name: str, ifconfig_text: str) -> InterfaceSnapshot
         up=up,
         link_up=link_up,
         mac=mac,
+        lagg_protocol=lagg_protocol,
         lagg_members=tuple(members),
     )
