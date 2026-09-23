@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 import unittest
 
@@ -21,43 +22,44 @@ class MetadataTests(unittest.TestCase):
                 ET.parse(path)
 
     def test_local_carrier_is_not_in_shared_model(self):
-        shared = (PLUGIN / "src/opnsense/mvc/app/models/OPNsense/WanHaDhcp/Shared.xml").read_text()
-        local = (PLUGIN / "src/opnsense/mvc/app/models/OPNsense/WanHaDhcp/Local.xml").read_text()
+        shared = (
+            PLUGIN
+            / "src/opnsense/mvc/app/models/OPNsense/WanHaDhcp/Shared.xml"
+        ).read_text()
+        local = (
+            PLUGIN
+            / "src/opnsense/mvc/app/models/OPNsense/WanHaDhcp/Local.xml"
+        ).read_text()
         self.assertNotIn("<carrier", shared)
         self.assertIn("<carrier", local)
 
     def test_shared_config_registers_without_local_config(self):
-        integration = (PLUGIN / "src/etc/inc/plugins.inc.d/wan_ha_dhcp.inc").read_text()
-        self.assertIn("'section' => 'OPNsense.WanHaDhcpShared'", integration)
-        self.assertNotIn("'section' => 'OPNsense.WanHaDhcpLocal'", integration)
+        integration = (
+            PLUGIN / "src/etc/inc/plugins.inc.d/wan_ha_dhcp.inc"
+        ).read_text()
+        self.assertIn(
+            "'section' => 'OPNsense.WanHaDhcpShared'",
+            integration,
+        )
+        self.assertNotIn(
+            "'section' => 'OPNsense.WanHaDhcpLocal'",
+            integration,
+        )
 
     def test_virtual_device_name_avoids_core_lagg_collision(self):
         # OPNsense 26.7 legacy virtual classification splits names on digits
-        # and looks for known tokens such as "lagg".  The plugin name must
+        # and looks for known tokens such as "lagg". The plugin name must
         # contain that token after a digit without beginning with "lagg".
         device = "wanha0lagg"
-        import re
         tokens = [token for token in re.split(r"\d+", device) if token]
         self.assertIn("lagg", tokens)
         self.assertFalse(device.startswith("lagg"))
 
     def test_device_registration_is_fail_closed(self):
-        integration = (PLUGIN / "src/etc/inc/plugins.inc.d/wan_ha_dhcp.inc").read_text()
-        self.assertIn("'pattern' => '^wanha[0-9]+lagg        self.assertIn("'spoofmac' => false", integration)
-        self.assertIn("'volatile' => true", integration)
-        self.assertIn("'name' => 'wanha0lagg'", integration)
-
-    def test_uninstall_guard_uses_stable_device_name(self):
-        pre = (PLUGIN / "+PRE_DEINSTALL.pre").read_text()
-        post = (PLUGIN / "+POST_DEINSTALL.post").read_text()
-        self.assertIn("wanha0lagg", pre)
-        self.assertIn("wanha0lagg", post)
-        self.assertNotIn("<if>wanha0</if>", pre)
-
-
-if __name__ == "__main__":
-    unittest.main()
-", integration)
+        integration = (
+            PLUGIN / "src/etc/inc/plugins.inc.d/wan_ha_dhcp.inc"
+        ).read_text()
+        self.assertIn("'pattern' => '^wanha[0-9]+lagg$'", integration)
         self.assertIn("'spoofmac' => false", integration)
         self.assertIn("'volatile' => true", integration)
         self.assertIn("'name' => 'wanha0lagg'", integration)
