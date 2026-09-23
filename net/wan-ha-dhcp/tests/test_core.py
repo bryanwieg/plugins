@@ -164,6 +164,61 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(argv[2][-1], "up")
 
 
+class FailbackTests(unittest.TestCase):
+    def test_preferred_node_waits_while_peer_master_is_alive(self):
+        decision = core.evaluate_failback(
+            now=100.0,
+            delay_seconds=120,
+            preferred_node=True,
+            local_is_master=False,
+            peer_master_present=True,
+            local_healthy=True,
+            state=core.FailbackState(),
+        )
+        self.assertFalse(decision.allow_preempt)
+        self.assertEqual(decision.state.healthy_since, 100.0)
+        self.assertEqual(decision.remaining_seconds, 120.0)
+
+    def test_hold_expires_after_continuous_health(self):
+        decision = core.evaluate_failback(
+            now=221.0,
+            delay_seconds=120,
+            preferred_node=True,
+            local_is_master=False,
+            peer_master_present=True,
+            local_healthy=True,
+            state=core.FailbackState(healthy_since=100.0),
+        )
+        self.assertTrue(decision.allow_preempt)
+        self.assertEqual(decision.remaining_seconds, 0.0)
+
+    def test_peer_failure_bypasses_hold(self):
+        decision = core.evaluate_failback(
+            now=110.0,
+            delay_seconds=120,
+            preferred_node=True,
+            local_is_master=False,
+            peer_master_present=False,
+            local_healthy=True,
+            state=core.FailbackState(healthy_since=100.0),
+        )
+        self.assertTrue(decision.allow_preempt)
+        self.assertIsNone(decision.state.healthy_since)
+
+    def test_health_failure_resets_hold(self):
+        decision = core.evaluate_failback(
+            now=150.0,
+            delay_seconds=120,
+            preferred_node=True,
+            local_is_master=False,
+            peer_master_present=True,
+            local_healthy=False,
+            state=core.FailbackState(healthy_since=100.0),
+        )
+        self.assertFalse(decision.allow_preempt)
+        self.assertIsNone(decision.state.healthy_since)
+
+
 class ParseTests(unittest.TestCase):
     SAMPLE = """ix0: flags=1008943<UP,BROADCAST,RUNNING,PROMISC,SIMPLEX,MULTICAST,LOWER_UP> metric 0 mtu 1500
         ether 00:e0:ed:73:20:4e
