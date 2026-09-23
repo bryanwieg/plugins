@@ -287,6 +287,10 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         and members == (settings.carrier,)
         and observed.carrier is not None
         and observed.carrier.up
+        and (
+            settings.managed_mtu is None
+            or wanha.mtu == settings.managed_mtu
+        )
         and wanha.mac is not None
         and wanha.mac.lower() == shared_mac
     )
@@ -367,6 +371,19 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
             Command(
                 ("/sbin/ifconfig", WANHA_DEVICE, "laggport", settings.carrier),
                 "attach local carrier after MASTER revalidation",
+            )
+        )
+
+    if settings.managed_mtu is not None and wanha.mtu != settings.managed_mtu:
+        plan.commands.append(
+            Command(
+                (
+                    "/sbin/ifconfig",
+                    WANHA_DEVICE,
+                    "mtu",
+                    str(settings.managed_mtu),
+                ),
+                "apply explicitly configured managed-WAN MTU to the logical LAGG",
             )
         )
 
