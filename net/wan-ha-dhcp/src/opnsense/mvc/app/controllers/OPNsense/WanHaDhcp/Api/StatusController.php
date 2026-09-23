@@ -15,6 +15,7 @@ class StatusController extends ApiControllerBase
     {
         $backend = new Backend();
         $devices = json_decode($backend->configdRun('interface list assign-opts'), true) ?? [];
+        $ifconfig = json_decode($backend->configdRun('interface list ifconfig'), true) ?? [];
         $shared = new Shared();
         $managedInterface = (string)$shared->managed_interface ?: 'wan';
         $blocked = Local::blockedCarrierDevices($managedInterface);
@@ -25,11 +26,13 @@ class StatusController extends ApiControllerBase
                 continue;
             }
 
-            $group = $details['optgroup'] ?? '';
-            if (!in_array($group, ['hardware', 'vlan'], true)) {
+            $runtimeReason = Local::carrierRuntimeEligibility($name, $devices, $ifconfig);
+            if ($runtimeReason !== null) {
+                $blocked[$name] = $runtimeReason;
                 continue;
             }
 
+            $group = $details['optgroup'] ?? '';
             $result[$name] = [
                 'name' => $name,
                 'label' => $details['value'] ?? $name,
