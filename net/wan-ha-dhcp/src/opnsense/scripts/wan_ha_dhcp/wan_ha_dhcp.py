@@ -67,6 +67,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         enabled=args.enabled,
         carrier=args.carrier,
         shared_mac=args.shared_mac,
+        managed_by_wanha=args.managed_by_wanha,
         managed_mtu=args.mtu,
     )
     carp_allowed = read_carp_allowed()
@@ -111,6 +112,11 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--carrier", required=True)
     status.add_argument("--shared-mac", required=True)
     status.add_argument("--enabled", action="store_true")
+    status.add_argument(
+        "--managed-by-wanha",
+        action="store_true",
+        help="assert that the logical managed WAN is already assigned to wanha0",
+    )
     status.add_argument(
         "--mtu",
         type=int,
