@@ -198,10 +198,46 @@ class PlannerTests(unittest.TestCase):
         )
         plan = core.plan_reconcile(self.settings(), observed)
         self.assertEqual(plan.commands[0].argv[-2:], ("-laggport", "ix0"))
-        self.assertEqual(plan.commands[1].argv, ("/sbin/ifconfig", "ix0", "down"))
-        self.assertEqual(plan.commands[2].argv[-2:], ("-laggport", "hn1"))
-        self.assertEqual(plan.commands[3].argv, ("/sbin/ifconfig", "hn1", "down"))
-        self.assertEqual(plan.commands[4].argv, ("/sbin/ifconfig", core.WANHA_DEVICE, "down"))
+        self.assertEqual(plan.commands[1].argv[-2:], ("-laggport", "hn1"))
+        self.assertEqual(plan.commands[2].argv, ("/sbin/ifconfig", "ix0", "down"))
+        self.assertEqual(plan.commands[3].argv, ("/sbin/ifconfig", core.WANHA_DEVICE, "down"))
+
+    def test_foreign_member_is_detached_but_not_forced_down(self):
+        settings = core.Settings(True, "hn1", "02:11:22:33:44:55")
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("hn1", exists=True, up=True, link_up=True, mtu=1500),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=False,
+                mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
+                mtu=1500,
+                lagg_members=("ix0",),
+            ),
+        )
+        plan = core.plan_reconcile(settings, observed)
+        self.assertEqual(plan.commands[0].argv[-2:], ("-laggport", "ix0"))
+        self.assertNotIn(("/sbin/ifconfig", "ix0", "down"), [cmd.argv for cmd in plan.commands])
+
+    def test_member_present_but_carrier_admin_down_is_recovered(self):
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=False, link_up=True, mtu=1500),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=True,
+                link_up=True,
+                mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
+                mtu=1500,
+                lagg_members=("ix0",),
+            ),
+        )
+        plan = core.plan_reconcile(self.settings(), observed)
+        self.assertIn(("/sbin/ifconfig", "ix0", "up"), [cmd.argv for cmd in plan.commands])
 
     def test_non_lagg_wanha_collision_is_not_mutated(self):
         observed = core.ObservedState(
