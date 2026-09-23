@@ -82,7 +82,9 @@ class StatusController extends ApiControllerBase
         $backend = new Backend();
         $interfaces = json_decode($backend->configdRun('interface list ifconfig'), true) ?? [];
         $carp = json_decode($backend->configdRun('interface show carp'), true) ?? [];
-        $globalRole = !empty($carp['allow']) ? $this->reduceGlobalCarpRole($interfaces) : 'INDETERMINATE';
+        $globalRole = !empty($carp['allow']) && empty($carp['maintenancemode'])
+            ? $this->reduceGlobalCarpRole($interfaces)
+            : 'INDETERMINATE';
 
         $shared = new Shared();
         $local = new Local();
