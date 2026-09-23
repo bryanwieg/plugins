@@ -26,6 +26,9 @@ Implemented so far:
 Installation must not be treated as approval to migrate a production WAN.
 Automatic CARP hooks and automatic command execution are deliberately absent.
 
+Intentional package removal is guarded while any logical interface is still
+assigned to `wanha0`; the guard explicitly permits normal package upgrades.
+
 The only plugin-side interface creation currently proposed by the integration
 scaffold is an **empty/detached** `wanha0` LAGG candidate when OPNsense asks
 the registered device to be prepared.  Gate A must validate that behavior on
@@ -47,7 +50,7 @@ normal plugin lint target once a target build environment is available.
 The Python CLI does not execute the returned command plan:
 
 ```sh
-/usr/local/opnsense/scripts/wan_ha_dhcp/wan_ha_dhcp.py \
+/usr/local/bin/python3 /usr/local/opnsense/scripts/wan_ha_dhcp/wan_ha_dhcp.py \
     status \
     --enabled \
     --carrier ix0 \
