@@ -57,6 +57,11 @@ class Shared extends BaseModel
                 gettext('wanha0lagg must exist as a LAGG interface before WAN HA DHCP can be enabled.'),
                 $this->enabled->getInternalXMLTagName()
             ));
+        } elseif ($ifconfig['wanha0lagg']['laggproto'] !== 'failover') {
+            $messages->appendMessage(new Message(
+                gettext('wanha0lagg must use the failover LAGG protocol.'),
+                $this->enabled->getInternalXMLTagName()
+            ));
         }
 
         $interface = (string)$this->managed_interface;
