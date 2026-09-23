@@ -32,6 +32,7 @@ class MacTests(unittest.TestCase):
 
     def test_flags_virtual_router_range(self):
         self.assertTrue(core.is_virtual_router_mac("00:00:5e:00:01:ed"))
+        self.assertTrue(core.is_virtual_router_mac("00:00:5e:00:02:ed"))
         self.assertFalse(core.is_virtual_router_mac("02:00:5e:00:01:ed"))
 
 
