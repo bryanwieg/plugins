@@ -53,16 +53,10 @@ $(document).ready(function() {
     });
 
     $("#saveSettings").click(function() {
-        const shared = $.Deferred();
         const local = $.Deferred();
 
-        saveFormToEndpoint(
-            "/api/wanhadhcp/shared/set",
-            "frm_SharedSettings",
-            shared.resolve,
-            true,
-            shared.reject
-        );
+        // Persist node-local carrier selection first.  A shared enable must not
+        // succeed locally after the carrier save failed.
         saveFormToEndpoint(
             "/api/wanhadhcp/local/set",
             "frm_LocalSettings",
@@ -71,8 +65,18 @@ $(document).ready(function() {
             local.reject
         );
 
-        $.when(shared, local).done(function() {
-            $("#saveResult").text("{{ lang._('Configuration saved. Runtime carrier mutation is not enabled in this experimental scaffold.') }}");
+        local.done(function() {
+            const shared = $.Deferred();
+            saveFormToEndpoint(
+                "/api/wanhadhcp/shared/set",
+                "frm_SharedSettings",
+                shared.resolve,
+                true,
+                shared.reject
+            );
+            shared.done(function() {
+                $("#saveResult").text("{{ lang._('Configuration saved. Runtime carrier mutation is not enabled in this experimental scaffold.') }}");
+            });
         });
     });
 });
