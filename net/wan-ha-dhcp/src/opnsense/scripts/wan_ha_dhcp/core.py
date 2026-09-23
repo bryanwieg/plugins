@@ -474,6 +474,21 @@ def evaluate_failback(
     )
 
 
+def desired_preempt_enabled(
+    *,
+    baseline_preempt_enabled: bool,
+    failback: FailbackDecision,
+) -> bool:
+    """
+    Apply the failback hold without overriding the administrator's baseline.
+
+    If native OPNsense preemption is disabled, the plugin never enables it.
+    If native preemption is enabled, the plugin temporarily suppresses it only
+    while the failback decision says a living MASTER must not be preempted.
+    """
+    return baseline_preempt_enabled and failback.allow_preempt
+
+
 def parse_carp_states(ifconfig_text: str) -> tuple[str, ...]:
     states: list[str] = []
     for line in ifconfig_text.splitlines():
