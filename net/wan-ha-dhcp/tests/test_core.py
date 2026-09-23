@@ -68,6 +68,7 @@ class DesiredStateTests(unittest.TestCase):
                 up=wanha_up,
                 link_up=member and link,
                 mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
                 lagg_members=("ix0",) if member else (),
             ),
         )
@@ -115,6 +116,7 @@ class PlannerTests(unittest.TestCase):
                 up=True,
                 link_up=True,
                 mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
                 lagg_members=("ix0",),
             ),
         )
@@ -132,6 +134,7 @@ class PlannerTests(unittest.TestCase):
                 up=True,
                 link_up=True,
                 mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
                 lagg_members=("ix0",),
             ),
         )
@@ -148,6 +151,7 @@ class PlannerTests(unittest.TestCase):
                 up=True,
                 link_up=True,
                 mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
                 lagg_members=("ix0", "hn1"),
             ),
         )
@@ -155,6 +159,25 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan.commands[0].argv[-2:], ("-laggport", "ix0"))
         self.assertEqual(plan.commands[1].argv[-2:], ("-laggport", "hn1"))
         self.assertEqual(plan.commands[2].argv[-1], "down")
+
+    def test_non_lagg_wanha_collision_is_not_mutated(self):
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=True,
+                link_up=True,
+                mac="02:11:22:33:44:55",
+                lagg_protocol=None,
+                lagg_members=(),
+            ),
+        )
+        plan = core.plan_reconcile(self.settings(), observed)
+        self.assertEqual(plan.desired.attachment, core.DesiredAttachment.FENCED)
+        self.assertEqual(plan.commands, [])
+        self.assertTrue(plan.warnings)
 
     def test_promotion_attaches_before_mac_then_up(self):
         observed = core.ObservedState(
@@ -165,6 +188,7 @@ class PlannerTests(unittest.TestCase):
                 exists=True,
                 up=False,
                 mac="00:aa:bb:cc:dd:ee",
+                lagg_protocol="failover",
                 lagg_members=(),
             ),
         )
@@ -247,6 +271,7 @@ wanha0: flags=1008943<UP,BROADCAST,RUNNING> metric 0 mtu 1500
         self.assertTrue(snap.up)
         self.assertTrue(snap.link_up)
         self.assertEqual(snap.mac, "02:11:22:33:44:55")
+        self.assertEqual(snap.lagg_protocol, "failover")
         self.assertEqual(snap.lagg_members, ("ix0",))
 
 
