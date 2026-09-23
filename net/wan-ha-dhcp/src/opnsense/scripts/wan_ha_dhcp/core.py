@@ -50,6 +50,7 @@ class InterfaceSnapshot:
 class ObservedState:
     carp_states: tuple[str, ...] = ()
     carp_allowed: bool = True
+    carp_maintenance: bool = False
     carrier: InterfaceSnapshot | None = None
     wanha: InterfaceSnapshot | None = None
 
@@ -180,6 +181,13 @@ def desired_state(settings: Settings, observed: ObservedState) -> DesiredState:
             GlobalRole.INDETERMINATE,
             DesiredAttachment.FENCED,
             "CARP is administratively disabled",
+        )
+
+    if observed.carp_maintenance:
+        return DesiredState(
+            GlobalRole.INDETERMINATE,
+            DesiredAttachment.FENCED,
+            "persistent CARP maintenance mode is active",
         )
 
     role = reduce_carp_role(observed.carp_states)
