@@ -6,11 +6,11 @@ if [ -n "${PKG_UPGRADE:-}" ]; then
     exit 0
 fi
 
-if /sbin/ifconfig wanha0 >/dev/null 2>&1; then
-    if /sbin/ifconfig wanha0 2>/dev/null | /usr/bin/grep -q 'laggproto '; then
-        /sbin/ifconfig wanha0 destroy >/dev/null 2>&1 || exit 1
+if /sbin/ifconfig wanha0lagg >/dev/null 2>&1; then
+    if /sbin/ifconfig wanha0lagg 2>/dev/null | /usr/bin/grep -q 'laggproto '; then
+        /sbin/ifconfig wanha0lagg destroy >/dev/null 2>&1 || exit 1
     else
-        echo "os-wan-ha-dhcp: wanha0 exists but is not a LAGG; leaving it untouched." >&2
+        echo "os-wan-ha-dhcp: wanha0lagg exists but is not a LAGG; leaving it untouched." >&2
     fi
 fi
 
