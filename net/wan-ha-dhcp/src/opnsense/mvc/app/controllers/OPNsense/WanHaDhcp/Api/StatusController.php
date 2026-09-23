@@ -95,8 +95,53 @@ class StatusController extends ApiControllerBase
         $managed = !empty($config->interfaces->$managedName) ? $config->interfaces->$managedName : null;
         $syncItems = array_filter(explode(',', (string)$hasync->syncitems));
 
+        $carpVipCount = 0;
+        $managedCarpVipCount = 0;
+        if (!empty($config->virtualip->vip)) {
+            foreach ($config->virtualip->vip as $vip) {
+                if ((string)$vip->mode !== 'carp') {
+                    continue;
+                }
+                $carpVipCount++;
+                if ((string)$vip->interface === $managedName) {
+                    $managedCarpVipCount++;
+                }
+            }
+        }
+
+        $warnings = [];
+        if ($carpVipCount === 0) {
+            $warnings[] = gettext('No native OPNsense CARP VIPs are configured.');
+        }
+        if ($managedCarpVipCount > 0) {
+            $warnings[] = gettext('The managed DHCP WAN still has one or more CARP VIPs assigned to it.');
+        }
+        if (empty((string)$hasync->pfsyncinterface)) {
+            $warnings[] = gettext('pfsync is not configured; established state preservation will not be available.');
+        }
+        if (!empty((string)$hasync->synchronizetoip) && !in_array('wan-ha-dhcp', $syncItems, true)) {
+            $warnings[] = gettext('WAN HA DHCP shared settings are not selected for XMLRPC HA synchronization.');
+        }
+        if ($managed !== null && (string)$managed->if !== 'wanha0lagg') {
+            $warnings[] = gettext('The managed logical interface is not assigned to wanha0lagg.');
+        }
+        if ($managed !== null && !empty((string)$managed->spoofmac)) {
+            $warnings[] = gettext('The managed WAN still has a native OPNsense spoof MAC configured.');
+        }
+        if ($managed !== null) {
+            $managedIpv6 = strtolower(trim((string)$managed->ipaddrv6));
+            if (!empty($managedIpv6) && $managedIpv6 !== 'none') {
+                $warnings[] = gettext('IPv6 is configured on the managed WAN; version 1 is IPv4-only.');
+            }
+        }
+        $sharedMac = strtolower(trim((string)$shared->shared_mac));
+        if (str_starts_with($sharedMac, '00:00:5e:00:01:')) {
+            $warnings[] = gettext('The configured shared MAC is in the CARP/VRRP virtual-router range and may be rejected by access networks.');
+        }
+
         return [
             'global_role' => $globalRole,
+            'warnings' => $warnings,
             'carp' => $carp,
             'interfaces' => $interfaces,
             'pfsync_runtime' => json_decode($backend->configdRun('filter list pfsync json'), true) ?? [],
@@ -116,6 +161,7 @@ class StatusController extends ApiControllerBase
                 'ipv4' => $managed !== null ? (string)$managed->ipaddr : '',
                 'ipv6' => $managed !== null ? (string)$managed->ipaddrv6 : '',
                 'spoof_mac' => $managed !== null ? (string)$managed->spoofmac : '',
+                'carp_vip_count' => $managedCarpVipCount,
             ],
             'plugin' => [
                 'enabled' => !empty((string)$shared->enabled),
