@@ -114,16 +114,32 @@ class Shared extends BaseModel
             ));
         }
 
+        $carpCount = 0;
+        $managedWanHasCarp = false;
         if (!empty($config->virtualip->vip)) {
-            foreach ($config->virtualip->vip->children() as $vip) {
-                if ((string)$vip->mode === 'carp' && (string)$vip->interface === $interface) {
-                    $messages->appendMessage(new Message(
-                        gettext('Remove CARP VIPs from the managed DHCP WAN before enabling WAN HA DHCP. CARP remains the cluster authority on other interfaces, but the ISP-facing WAN itself must not carry a CARP VIP.'),
-                        $this->managed_interface->getInternalXMLTagName()
-                    ));
-                    break;
+            foreach ($config->virtualip->vip as $vip) {
+                if ((string)$vip->mode !== 'carp') {
+                    continue;
+                }
+                $carpCount++;
+                if ((string)$vip->interface === $interface) {
+                    $managedWanHasCarp = true;
                 }
             }
+        }
+
+        if ($carpCount === 0) {
+            $messages->appendMessage(new Message(
+                gettext('WAN HA DHCP requires an existing native OPNsense CARP configuration.'),
+                $this->enabled->getInternalXMLTagName()
+            ));
+        }
+
+        if ($managedWanHasCarp) {
+            $messages->appendMessage(new Message(
+                gettext('Remove CARP VIPs from the managed DHCP WAN before enabling WAN HA DHCP. CARP remains the cluster authority on other interfaces, but the ISP-facing WAN itself must not carry a CARP VIP.'),
+                $this->managed_interface->getInternalXMLTagName()
+            ));
         }
 
         return $messages;
