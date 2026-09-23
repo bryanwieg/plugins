@@ -83,6 +83,12 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(integration.count("function wan_ha_dhcp_prepare_device("), 1)
         self.assertEqual(integration.count("function wan_ha_dhcp_xmlrpc_sync("), 1)
 
+    def test_plugin_reserves_migrated_local_carrier(self):
+        integration = (PLUGIN / "src/etc/inc/plugins.inc.d/wan_ha_dhcp.inc").read_text()
+        self.assertIn("$wanha_assigned", integration)
+        self.assertIn("'exclude' => $exclude", integration)
+        self.assertIn("(string)$interface->if === 'wanha0lagg'", integration)
+
     def test_uninstall_guard_uses_stable_device_name(self):
         pre = (PLUGIN / "+PRE_DEINSTALL.pre").read_text()
         post = (PLUGIN / "+POST_DEINSTALL.post").read_text()
