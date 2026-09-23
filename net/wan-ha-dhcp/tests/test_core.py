@@ -290,7 +290,6 @@ class FailbackTests(unittest.TestCase):
             now=100.0,
             delay_seconds=120,
             local_is_master=False,
-            peer_master_present=True,
             local_healthy=True,
             state=core.FailbackState(),
         )
@@ -303,19 +302,17 @@ class FailbackTests(unittest.TestCase):
             now=221.0,
             delay_seconds=120,
             local_is_master=False,
-            peer_master_present=True,
             local_healthy=True,
             state=core.FailbackState(healthy_since=100.0),
         )
         self.assertTrue(decision.allow_preempt)
         self.assertEqual(decision.remaining_seconds, 0.0)
 
-    def test_peer_failure_bypasses_hold(self):
+    def test_native_master_transition_bypasses_hold(self):
         decision = core.evaluate_failback(
             now=110.0,
             delay_seconds=120,
-            local_is_master=False,
-            peer_master_present=False,
+            local_is_master=True,
             local_healthy=True,
             state=core.FailbackState(healthy_since=100.0),
         )
@@ -327,7 +324,6 @@ class FailbackTests(unittest.TestCase):
             now=150.0,
             delay_seconds=120,
             local_is_master=False,
-            peer_master_present=True,
             local_healthy=False,
             state=core.FailbackState(healthy_since=100.0),
         )
