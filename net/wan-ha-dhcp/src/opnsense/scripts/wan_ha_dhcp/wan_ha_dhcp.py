@@ -36,14 +36,15 @@ def read_ifconfig() -> str:
     ).stdout
 
 
-def read_carp_allowed() -> bool:
+def read_carp_admin() -> tuple[bool, bool]:
     result = subprocess.run(
-        ["/sbin/sysctl", "-n", "net.inet.carp.allow"],
+        ["/usr/local/sbin/configctl", "interface", "show", "carp"],
         check=True,
         capture_output=True,
         text=True,
     )
-    return result.stdout.strip() == "1"
+    payload = json.loads(result.stdout or "{}")
+    return bool(int(payload.get("allow", 0))), bool(payload.get("maintenancemode", False))
 
 
 def cmd_generate_mac(_args: argparse.Namespace) -> int:
@@ -70,10 +71,11 @@ def cmd_status(args: argparse.Namespace) -> int:
         managed_by_wanha=args.managed_by_wanha,
         managed_mtu=args.mtu,
     )
-    carp_allowed = read_carp_allowed()
+    carp_allowed, carp_maintenance = read_carp_admin()
     observed = ObservedState(
         carp_states=carp_states,
         carp_allowed=carp_allowed,
+        carp_maintenance=carp_maintenance,
         carrier=carrier,
         wanha=wanha,
     )
@@ -82,6 +84,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     payload = {
         "carp_states": list(carp_states),
         "carp_allowed": carp_allowed,
+        "carp_maintenance": carp_maintenance,
         "global_role": plan.desired.role.value,
         "desired_attachment": plan.desired.attachment.value,
         "reason": plan.desired.reason,
