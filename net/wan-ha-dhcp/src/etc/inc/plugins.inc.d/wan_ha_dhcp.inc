@@ -50,7 +50,9 @@ function wan_ha_dhcp_prepare_device($device)
      * this initial scaffold.  No carrier is attached here.
      */
     if (!does_interface_exist($device)) {
-        mwexecf('/sbin/ifconfig lagg create name %s', [$device]);
+        if (legacy_interface_create('lagg', $device) === null) {
+            return null;
+        }
     }
 
     return does_interface_exist($device) ? $device : null;
