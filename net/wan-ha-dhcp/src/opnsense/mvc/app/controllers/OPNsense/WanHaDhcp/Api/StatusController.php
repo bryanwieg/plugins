@@ -71,10 +71,12 @@ class StatusController extends ApiControllerBase
     {
         $backend = new Backend();
         $interfaces = json_decode($backend->configdRun('interface list ifconfig'), true) ?? [];
+        $carp = json_decode($backend->configdRun('interface show carp'), true) ?? [];
+        $globalRole = !empty($carp['allow']) ? $this->reduceGlobalCarpRole($interfaces) : 'INDETERMINATE';
 
         return [
-            'global_role' => $this->reduceGlobalCarpRole($interfaces),
-            'carp' => json_decode($backend->configdRun('interface show carp'), true) ?? [],
+            'global_role' => $globalRole,
+            'carp' => $carp,
             'interfaces' => $interfaces,
             'pfsync' => json_decode($backend->configdRun('filter list pfsync json'), true) ?? [],
         ];
