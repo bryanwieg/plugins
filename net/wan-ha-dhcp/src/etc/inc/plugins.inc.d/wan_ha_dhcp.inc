@@ -20,6 +20,24 @@
 
 function wan_ha_dhcp_devices()
 {
+    $exclude = [];
+    $config = \OPNsense\Core\Config::getInstance()->object();
+    $carrier = trim((string)($config->OPNsense->WanHaDhcpLocal->carrier ?? ''));
+    $wanha_assigned = false;
+
+    if (!empty($config->interfaces)) {
+        foreach ($config->interfaces->children() as $interface) {
+            if ((string)$interface->if === 'wanha0lagg') {
+                $wanha_assigned = true;
+                break;
+            }
+        }
+    }
+
+    if ($wanha_assigned && !empty($carrier)) {
+        $exclude[] = $carrier;
+    }
+
     return [[
         'function' => 'wan_ha_dhcp_prepare_device',
         'configurable' => true,
@@ -33,6 +51,7 @@ function wan_ha_dhcp_devices()
                 'descr' => gettext('wanha0lagg (WAN HA DHCP)'),
                 'ifdescr' => gettext('WAN HA DHCP'),
                 'name' => 'wanha0lagg',
+                'exclude' => $exclude,
             ],
         ],
     ]];
