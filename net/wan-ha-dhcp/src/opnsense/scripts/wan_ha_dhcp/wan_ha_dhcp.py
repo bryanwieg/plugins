@@ -118,7 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument(
         "--managed-by-wanha",
         action="store_true",
-        help="assert that the logical managed WAN is already assigned to wanha0",
+        help="assert that the logical managed WAN is already assigned to wanha0lagg",
     )
     status.add_argument(
         "--mtu",
