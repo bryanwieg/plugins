@@ -577,6 +577,7 @@ Migration should be wizard-assisted and deliberately reversible.
 6. Create/validate `wanha0lagg` detached on both nodes.
 7. Migrate the BACKUP logical WAN assignment to `wanha0lagg`; verify it remains fenced. This should not affect active Internet service.
 8. Perform a controlled migration of the MASTER logical WAN assignment to `wanha0lagg`. Because the plugin is still disabled and the virtual WAN is intentionally detached, expect a bounded deployment interruption at this point.
+   If the selected shared MAC differs from the identity the ISP previously saw, the provider/ONT may retain a CPE/DHCP session and require its normal customer-side reset procedure before the first lease is issued. This is deployment-specific and MUST NOT be automated by the plugin. Subsequent HA failovers keep the same shared MAC and should not look like a client-MAC change upstream.
 9. Enable WAN HA DHCP on the MASTER only after its logical WAN is assigned to `wanha0lagg` and all local validation passes. The controller may then attach the local carrier, apply the shared MAC, and allow native DHCP to converge.
 10. Synchronize/confirm the enabled shared setting to the already-migrated BACKUP and verify that it remains physically fenced.
 11. Verify only MASTER emits ISP-facing frames/shared MAC.
