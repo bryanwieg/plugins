@@ -273,6 +273,12 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
                 "rename the newly-created LAGG to the stable WAN HA device name",
             )
         )
+        plan.commands.append(
+            Command(
+                ("/sbin/ifconfig", WANHA_DEVICE, "laggproto", "failover"),
+                "set the WAN HA LAGG protocol explicitly",
+            )
+        )
 
     # A stale/foreign member is an unsafe path. Fence it before preparing the
     # desired carrier.
@@ -294,10 +300,11 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         )
 
     if not member_present:
+        target_mtu = settings.managed_mtu if settings.managed_mtu is not None else wanha.mtu
         if (
-            settings.managed_mtu is not None
+            target_mtu is not None
             and observed.carrier is not None
-            and observed.carrier.mtu != settings.managed_mtu
+            and observed.carrier.mtu != target_mtu
         ):
             plan.commands.append(
                 Command(
@@ -305,7 +312,7 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
                         "/sbin/ifconfig",
                         settings.carrier,
                         "mtu",
-                        str(settings.managed_mtu),
+                        str(target_mtu),
                     ),
                     "align carrier MTU with the native managed WAN before LAGG attachment",
                 )
