@@ -660,6 +660,7 @@ Prove:
 - Existing WAN settings continue to apply.
 - Packet capture confirms the promoted node sends the configured shared MAC as DHCP `chaddr` and preserves any explicitly configured native OPNsense DHCP client identifier/hostname behavior.
 - Determine whether a dhclient started while detached observes the post-attach shared MAC automatically. If not, use the documented `configctl interface reconfigure <logical-interface>` path after shared-MAC installation rather than private DHCP internals.
+- Confirm that native interface reconfigure preserves the controller-applied shared MAC. OPNsense 26.7 currently suppresses native MAC replacement for registered device types with `spoofmac=false`, which is how `wanha0lagg` is registered.
 - Record the per-interface lease database behavior (currently `/var/db/dhclient.leases.<device>`) and confirm that lack of lease-file replication does not break basic failover.
 
 ### Gate C — delayed failback
