@@ -169,7 +169,6 @@ class FailbackTests(unittest.TestCase):
         decision = core.evaluate_failback(
             now=100.0,
             delay_seconds=120,
-            preferred_node=True,
             local_is_master=False,
             peer_master_present=True,
             local_healthy=True,
@@ -183,7 +182,6 @@ class FailbackTests(unittest.TestCase):
         decision = core.evaluate_failback(
             now=221.0,
             delay_seconds=120,
-            preferred_node=True,
             local_is_master=False,
             peer_master_present=True,
             local_healthy=True,
@@ -196,7 +194,6 @@ class FailbackTests(unittest.TestCase):
         decision = core.evaluate_failback(
             now=110.0,
             delay_seconds=120,
-            preferred_node=True,
             local_is_master=False,
             peer_master_present=False,
             local_healthy=True,
@@ -209,7 +206,6 @@ class FailbackTests(unittest.TestCase):
         decision = core.evaluate_failback(
             now=150.0,
             delay_seconds=120,
-            preferred_node=True,
             local_is_master=False,
             peer_master_present=True,
             local_healthy=False,
