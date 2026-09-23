@@ -131,7 +131,7 @@ def is_virtual_router_mac(value: str) -> bool:
         normalized = normalize_mac(value)
     except ValueError:
         return False
-    return normalized.startswith("00:00:5e:00:01:")
+    return normalized.startswith(("00:00:5e:00:01:", "00:00:5e:00:02:"))
 
 
 def reduce_carp_role(states: Iterable[str]) -> GlobalRole:
@@ -404,7 +404,7 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
 
     if is_virtual_router_mac(shared_mac):
         plan.warnings.append(
-            "shared MAC is in the CARP/VRRP virtual-router range and may be rejected upstream"
+            "shared MAC is in a standardized VRRP/CARP virtual-router range and may be rejected upstream"
         )
     return plan
 
