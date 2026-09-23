@@ -37,7 +37,7 @@ $(document).ready(function() {
     });
 
     $("#generateMac").click(function() {
-        ajaxCall("/api/wanhadhcp/status/generateMac", {}, function(data, status) {
+        ajaxCall("/api/wanhadhcp/status/generate_mac", {}, function(data, status) {
             if (status === "success" && data.mac) {
                 $("#wanhashared\\.shared_mac").val(data.mac);
             }
