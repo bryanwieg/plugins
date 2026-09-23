@@ -52,9 +52,9 @@ class Shared extends BaseModel
         }
 
         $ifconfig = json_decode((new Backend())->configdRun('interface list ifconfig'), true) ?? [];
-        if (empty($ifconfig['wanha0']['laggproto'])) {
+        if (empty($ifconfig['wanha0lagg']['laggproto'])) {
             $messages->appendMessage(new Message(
-                gettext('wanha0 must exist as a LAGG interface before WAN HA DHCP can be enabled.'),
+                gettext('wanha0lagg must exist as a LAGG interface before WAN HA DHCP can be enabled.'),
                 $this->enabled->getInternalXMLTagName()
             ));
         }
@@ -85,9 +85,9 @@ class Shared extends BaseModel
             ));
         }
 
-        if ((string)$managed->if !== 'wanha0') {
+        if ((string)$managed->if !== 'wanha0lagg') {
             $messages->appendMessage(new Message(
-                gettext('The managed interface must be assigned to wanha0 before WAN HA DHCP can be enabled.'),
+                gettext('The managed interface must be assigned to wanha0lagg before WAN HA DHCP can be enabled.'),
                 $this->managed_interface->getInternalXMLTagName()
             ));
         }
