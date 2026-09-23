@@ -63,6 +63,14 @@ function wan_ha_dhcp_prepare_device($device)
         ), LOG_ERR);
         return null;
     }
+    if ($details[$device]['laggproto'] !== 'failover') {
+        log_msg(sprintf(
+            'WAN HA DHCP refused device %s because LAGG protocol %s is not failover',
+            $device,
+            $details[$device]['laggproto']
+        ), LOG_ERR);
+        return null;
+    }
 
     return $device;
 }
