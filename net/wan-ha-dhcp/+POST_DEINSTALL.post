@@ -14,4 +14,6 @@ if /sbin/ifconfig wanha0lagg >/dev/null 2>&1; then
     fi
 fi
 
+rm -rf /var/run/wan-ha-dhcp >/dev/null 2>&1 || :
+
 exit 0
