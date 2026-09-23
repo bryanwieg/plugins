@@ -259,22 +259,15 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
                     "fence ISP Layer-2 path before cleanup",
                 )
             )
-            plan.commands.append(
-                Command(
-                    ("/sbin/ifconfig", member, "down"),
-                    "administratively silence detached ISP carrier",
-                )
-            )
         if (
-            not members
-            and observed.carrier is not None
+            observed.carrier is not None
             and observed.carrier.exists
             and observed.carrier.up
         ):
             plan.commands.append(
                 Command(
                     ("/sbin/ifconfig", settings.carrier, "down"),
-                    "keep the managed standby ISP carrier administratively silent",
+                    "keep the explicitly configured standby ISP carrier administratively silent",
                 )
             )
         if wanha.exists and wanha.up:
@@ -292,6 +285,8 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         and wanha.up
         and wanha.lagg_protocol == "failover"
         and members == (settings.carrier,)
+        and observed.carrier is not None
+        and observed.carrier.up
         and wanha.mac is not None
         and wanha.mac.lower() == shared_mac
     )
@@ -325,13 +320,7 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         plan.commands.append(
             Command(
                 ("/sbin/ifconfig", WANHA_DEVICE, "-laggport", member),
-                "remove stale carrier before ownership transition",
-            )
-        )
-        plan.commands.append(
-            Command(
-                ("/sbin/ifconfig", member, "down"),
-                "silence stale detached carrier before attaching the desired path",
+                "remove stale carrier before ownership transition without changing its administrative state",
             )
         )
 
@@ -341,6 +330,18 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
             Command(
                 ("/sbin/ifconfig", WANHA_DEVICE, "down"),
                 "prepare WAN without forwarding during ownership transition",
+            )
+        )
+
+    if (
+        observed.carrier is not None
+        and observed.carrier.exists
+        and not observed.carrier.up
+    ):
+        plan.commands.append(
+            Command(
+                ("/sbin/ifconfig", settings.carrier, "up"),
+                "ensure the configured active carrier is administratively up",
             )
         )
 
@@ -360,13 +361,6 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
                         str(target_mtu),
                     ),
                     "align carrier MTU with the native managed WAN before LAGG attachment",
-                )
-            )
-        if observed.carrier is not None and not observed.carrier.up:
-            plan.commands.append(
-                Command(
-                    ("/sbin/ifconfig", settings.carrier, "up"),
-                    "bring local carrier administratively up before adding it to the LAGG",
                 )
             )
         plan.commands.append(
