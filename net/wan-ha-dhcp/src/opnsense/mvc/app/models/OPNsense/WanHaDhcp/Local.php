@@ -9,6 +9,71 @@ use OPNsense\Core\Config;
 
 class Local extends BaseModel
 {
+    public static function blockedCarrierDevices($managedInterface = 'wan')
+    {
+        $config = Config::getInstance()->object();
+        $blocked = [];
+
+        if (!empty($config->interfaces)) {
+            foreach ($config->interfaces->children() as $name => $interface) {
+                $device = trim((string)$interface->if);
+                if (!empty($device) && $name !== $managedInterface) {
+                    $blocked[$device] = sprintf(
+                        gettext('already assigned to interface %s'),
+                        strtoupper($name)
+                    );
+                }
+            }
+        }
+
+        if (!empty($config->vlans)) {
+            foreach ($config->vlans->children() as $vlan) {
+                $parent = trim((string)$vlan->if);
+                if (!empty($parent)) {
+                    $blocked[$parent] = gettext('is the parent of a configured VLAN');
+                }
+            }
+        }
+
+        if (!empty($config->laggs)) {
+            foreach ($config->laggs->children() as $lagg) {
+                foreach (array_filter(explode(',', (string)$lagg->members)) as $member) {
+                    $blocked[$member] = sprintf(
+                        gettext('is a member of configured LAGG %s'),
+                        (string)$lagg->laggif
+                    );
+                }
+            }
+        }
+
+        if (!empty($config->bridges)) {
+            foreach ($config->bridges->children() as $bridge) {
+                foreach (array_filter(explode(',', (string)$bridge->members)) as $member) {
+                    if (!empty($config->interfaces->$member->if)) {
+                        $device = (string)$config->interfaces->$member->if;
+                        $blocked[$device] = sprintf(
+                            gettext('is a member of configured bridge %s'),
+                            (string)$bridge->bridgeif
+                        );
+                    }
+                }
+            }
+        }
+
+        if (!empty($config->ppps)) {
+            foreach ($config->ppps->children() as $ppp) {
+                foreach (array_filter(explode(',', (string)$ppp->ports)) as $port) {
+                    $blocked[$port] = sprintf(
+                        gettext('is used by configured %s interface'),
+                        strtoupper((string)$ppp->type)
+                    );
+                }
+            }
+        }
+
+        return $blocked;
+    }
+
     public function performValidation($validateFullModel = false)
     {
         $messages = parent::performValidation($validateFullModel);
@@ -43,39 +108,16 @@ class Local extends BaseModel
             return $messages;
         }
 
-        $config = Config::getInstance()->object();
-        $managedInterface = (string)$shared->managed_interface;
-
-        if (!empty($config->interfaces)) {
-            foreach ($config->interfaces->children() as $name => $interface) {
-                if ((string)$interface->if === $carrier && $name !== $managedInterface) {
-                    $messages->appendMessage(new Message(
-                        sprintf(
-                            gettext('The selected carrier is already assigned to interface %s.'),
-                            strtoupper($name)
-                        ),
-                        $this->carrier->getInternalXMLTagName()
-                    ));
-                    break;
-                }
-            }
-        }
-
-        /*
-         * A raw Ethernet parent with configured VLAN children is not a safe
-         * carrier: moving it into wanha0 would also disrupt those VLANs.
-         * Select the ISP VLAN interface itself instead when appropriate.
-         */
-        if ($group === 'hardware' && !empty($config->vlans)) {
-            foreach ($config->vlans->children() as $vlan) {
-                if ((string)$vlan->if === $carrier) {
-                    $messages->appendMessage(new Message(
-                        gettext('The selected physical carrier is a parent of configured VLANs; select an eligible VLAN interface or a dedicated carrier instead.'),
-                        $this->carrier->getInternalXMLTagName()
-                    ));
-                    break;
-                }
-            }
+        $managedInterface = (string)$shared->managed_interface ?: 'wan';
+        $blocked = self::blockedCarrierDevices($managedInterface);
+        if (!empty($blocked[$carrier])) {
+            $messages->appendMessage(new Message(
+                sprintf(
+                    gettext('The selected carrier cannot be used because it %s.'),
+                    $blocked[$carrier]
+                ),
+                $this->carrier->getInternalXMLTagName()
+            ));
         }
 
         return $messages;
