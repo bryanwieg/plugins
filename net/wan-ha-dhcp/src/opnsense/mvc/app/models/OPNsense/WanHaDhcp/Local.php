@@ -76,14 +76,26 @@ class Local extends BaseModel
 
     public static function carrierRuntimeEligibility($carrier, array $devices, array $ifconfig)
     {
-        $group = $devices[$carrier]['optgroup'] ?? null;
-        if (!in_array($group, ['hardware', 'vlan'], true)) {
-            return gettext('is not an eligible physical Ethernet or VLAN interface');
-        }
-
         $runtime = $ifconfig[$carrier] ?? null;
         if (empty($runtime)) {
             return gettext('does not currently exist in the FreeBSD interface inventory');
+        }
+
+        $group = $devices[$carrier]['optgroup'] ?? null;
+        if ($group === null) {
+            /*
+             * After migration the plugin intentionally excludes its carrier
+             * from OPNsense's general assignment options.  Preserve validation
+             * of that already-configured carrier using runtime shape.
+             */
+            if (!empty($runtime['vlan'])) {
+                $group = 'vlan';
+            } elseif (!empty($runtime['is_physical'])) {
+                $group = 'hardware';
+            }
+        }
+        if (!in_array($group, ['hardware', 'vlan'], true)) {
+            return gettext('is not an eligible physical Ethernet or VLAN interface');
         }
 
         if (!empty($runtime['laggproto']) || !empty($runtime['members']) || !empty($runtime['tunnel']) || !empty($runtime['vxlan'])) {
