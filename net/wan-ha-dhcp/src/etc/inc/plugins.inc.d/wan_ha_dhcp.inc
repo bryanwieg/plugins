@@ -53,6 +53,7 @@ function wan_ha_dhcp_prepare_device($device)
         if (legacy_interface_create('lagg', $device) === null) {
             return null;
         }
+        mwexecf('/sbin/ifconfig %s laggproto failover', [$device]);
     }
 
     $details = legacy_interfaces_details($device);
