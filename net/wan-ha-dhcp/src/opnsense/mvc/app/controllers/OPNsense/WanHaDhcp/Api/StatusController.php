@@ -40,6 +40,26 @@ class StatusController extends ApiControllerBase
             ];
         }
 
+        $local = new Local();
+        $currentCarrier = trim((string)$local->carrier);
+        if (
+            !empty($currentCarrier) &&
+            empty($result[$currentCarrier]) &&
+            empty($blocked[$currentCarrier])
+        ) {
+            $runtimeReason = Local::carrierRuntimeEligibility($currentCarrier, $devices, $ifconfig);
+            if ($runtimeReason === null) {
+                $runtime = $ifconfig[$currentCarrier] ?? [];
+                $result[$currentCarrier] = [
+                    'name' => $currentCarrier,
+                    'label' => sprintf(gettext('%s (current WAN HA carrier)'), $currentCarrier),
+                    'type' => !empty($runtime['vlan']) ? 'vlan' : 'hardware',
+                ];
+            } else {
+                $blocked[$currentCarrier] = $runtimeReason;
+            }
+        }
+
         ksort($result, SORT_NATURAL);
         return ['items' => array_values($result), 'blocked' => $blocked];
     }
