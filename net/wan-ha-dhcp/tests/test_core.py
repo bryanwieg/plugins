@@ -384,7 +384,7 @@ class ParseTests(unittest.TestCase):
         ether 00:e0:ed:73:20:4e
         carp: MASTER vhid 100 advbase 1 advskew 0
         status: active
-wanha0lagg: flags=1008943<UP,BROADCAST,RUNNING> metric 0 mtu 1500
+wanha0lagglagg: flags=1008943<UP,BROADCAST,RUNNING> metric 0 mtu 1500
         ether 02:11:22:33:44:55
         laggproto failover lagghash l2,l3,l4
         laggport: ix0 flags=5<MASTER,ACTIVE>
@@ -395,7 +395,7 @@ wanha0lagg: flags=1008943<UP,BROADCAST,RUNNING> metric 0 mtu 1500
         self.assertEqual(core.parse_carp_states(self.SAMPLE), ("MASTER",))
 
     def test_parse_interface(self):
-        snap = core.parse_interface_snapshot("wanha0lagg", self.SAMPLE)
+        snap = core.parse_interface_snapshot("wanha0lagglagg", self.SAMPLE)
         self.assertTrue(snap.exists)
         self.assertTrue(snap.up)
         self.assertTrue(snap.link_up)
