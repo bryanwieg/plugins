@@ -46,8 +46,7 @@ class StatusController extends ApiControllerBase
 
     public function generateMacAction()
     {
-        $bytes = random_bytes(6);
-        $bytes[0] = chr((ord($bytes[0]) | 0x02) & 0xFE);
+        $bytes = chr(0x02) . random_bytes(5);
         return ['mac' => implode(':', str_split(bin2hex($bytes), 2))];
     }
 
