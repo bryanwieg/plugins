@@ -69,6 +69,7 @@ class DesiredStateTests(unittest.TestCase):
                 link_up=member and link,
                 mac="02:11:22:33:44:55",
                 lagg_protocol="failover",
+                mtu=1500,
                 lagg_members=("ix0",) if member else (),
             ),
         )
@@ -117,6 +118,7 @@ class PlannerTests(unittest.TestCase):
                 link_up=True,
                 mac="02:11:22:33:44:55",
                 lagg_protocol="failover",
+                mtu=1500,
                 lagg_members=("ix0",),
             ),
         )
@@ -135,6 +137,7 @@ class PlannerTests(unittest.TestCase):
                 link_up=True,
                 mac="02:11:22:33:44:55",
                 lagg_protocol="failover",
+                mtu=1500,
                 lagg_members=("ix0",),
             ),
         )
@@ -152,6 +155,7 @@ class PlannerTests(unittest.TestCase):
                 link_up=True,
                 mac="02:11:22:33:44:55",
                 lagg_protocol="failover",
+                mtu=1500,
                 lagg_members=("ix0", "hn1"),
             ),
         )
@@ -179,6 +183,41 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan.commands, [])
         self.assertTrue(plan.warnings)
 
+    def test_non_failover_wanha_is_not_mutated(self):
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=False,
+                lagg_protocol="lacp",
+                mtu=1500,
+                lagg_members=(),
+            ),
+        )
+        plan = core.plan_reconcile(self.settings(), observed)
+        self.assertEqual(plan.desired.attachment, core.DesiredAttachment.FENCED)
+        self.assertEqual(plan.commands, [])
+
+    def test_custom_mtu_is_applied_to_carrier_before_attachment(self):
+        settings = core.Settings(True, "ix0", "02:11:22:33:44:55", managed_mtu=1400)
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=False,
+                lagg_protocol="failover",
+                mtu=1500,
+                lagg_members=(),
+            ),
+        )
+        plan = core.plan_reconcile(settings, observed)
+        self.assertEqual(plan.commands[0].argv, ("/sbin/ifconfig", "ix0", "mtu", "1400"))
+        self.assertEqual(plan.commands[1].argv[-2:], ("laggport", "ix0"))
+
     def test_down_carrier_is_brought_up_before_lagg_attachment(self):
         observed = core.ObservedState(
             carp_states=("MASTER",),
@@ -189,6 +228,7 @@ class PlannerTests(unittest.TestCase):
                 up=False,
                 mac="02:11:22:33:44:55",
                 lagg_protocol="failover",
+                mtu=1500,
                 lagg_members=(),
             ),
         )
@@ -206,6 +246,7 @@ class PlannerTests(unittest.TestCase):
                 up=False,
                 mac="00:aa:bb:cc:dd:ee",
                 lagg_protocol="failover",
+                mtu=1500,
                 lagg_members=(),
             ),
         )
@@ -289,6 +330,7 @@ wanha0: flags=1008943<UP,BROADCAST,RUNNING> metric 0 mtu 1500
         self.assertTrue(snap.link_up)
         self.assertEqual(snap.mac, "02:11:22:33:44:55")
         self.assertEqual(snap.lagg_protocol, "failover")
+        self.assertEqual(snap.mtu, 1500)
         self.assertEqual(snap.lagg_members, ("ix0",))
 
 
