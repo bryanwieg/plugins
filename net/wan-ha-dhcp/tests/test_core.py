@@ -1,0 +1,158 @@
+import importlib.util
+from pathlib import Path
+import sys
+import unittest
+from unittest.mock import patch
+
+
+CORE = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "opnsense"
+    / "scripts"
+    / "wan_ha_dhcp"
+    / "core.py"
+)
+SPEC = importlib.util.spec_from_file_location("wan_ha_dhcp_core", CORE)
+core = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = core
+SPEC.loader.exec_module(core)
+
+
+class MacTests(unittest.TestCase):
+    def test_rejects_multicast_and_broadcast(self):
+        self.assertFalse(core.validate_shared_mac("01:00:5e:00:00:01")[0])
+        self.assertFalse(core.validate_shared_mac("ff:ff:ff:ff:ff:ff")[0])
+
+    def test_generated_mac_is_local_unicast(self):
+        with patch.object(core.secrets, "token_bytes", return_value=bytes.fromhex("001122334455")):
+            mac = core.generate_private_mac()
+        self.assertEqual(mac, "02:11:22:33:44:55")
+        self.assertTrue(core.is_locally_administered_unicast(mac))
+
+    def test_flags_virtual_router_range(self):
+        self.assertTrue(core.is_virtual_router_mac("00:00:5e:00:01:ed"))
+        self.assertFalse(core.is_virtual_router_mac("02:00:5e:00:01:ed"))
+
+
+class CarpRoleTests(unittest.TestCase):
+    def test_all_master_is_master(self):
+        self.assertEqual(
+            core.reduce_carp_role(["MASTER", "MASTER"]),
+            core.GlobalRole.MASTER,
+        )
+
+    def test_any_backup_is_backup(self):
+        self.assertEqual(
+            core.reduce_carp_role(["MASTER", "BACKUP"]),
+            core.GlobalRole.BACKUP,
+        )
+
+    def test_init_mixed_or_empty_is_indeterminate(self):
+        self.assertEqual(core.reduce_carp_role(["MASTER", "INIT"]), core.GlobalRole.INDETERMINATE)
+        self.assertEqual(core.reduce_carp_role(["INIT"]), core.GlobalRole.INDETERMINATE)
+        self.assertEqual(core.reduce_carp_role([]), core.GlobalRole.INDETERMINATE)
+
+
+class DesiredStateTests(unittest.TestCase):
+    def settings(self):
+        return core.Settings(True, "ix0", "02:11:22:33:44:55")
+
+    def observed(self, states=("MASTER",), link=True, member=False, wanha_up=False):
+        return core.ObservedState(
+            carp_states=states,
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=link),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=wanha_up,
+                link_up=member and link,
+                mac="02:11:22:33:44:55",
+                lagg_members=("ix0",) if member else (),
+            ),
+        )
+
+    def test_master_with_healthy_carrier_attaches(self):
+        desired = core.desired_state(self.settings(), self.observed())
+        self.assertEqual(desired.attachment, core.DesiredAttachment.ATTACHED)
+
+    def test_backup_fences(self):
+        desired = core.desired_state(self.settings(), self.observed(states=("BACKUP",)))
+        self.assertEqual(desired.attachment, core.DesiredAttachment.FENCED)
+
+    def test_common_upstream_status_is_not_an_input(self):
+        # There is deliberately no gateway/DHCP/Internet health input.
+        desired = core.desired_state(self.settings(), self.observed())
+        self.assertEqual(desired.attachment, core.DesiredAttachment.ATTACHED)
+
+    def test_local_link_failure_fences_even_when_master(self):
+        desired = core.desired_state(self.settings(), self.observed(link=False))
+        self.assertEqual(desired.attachment, core.DesiredAttachment.FENCED)
+
+
+class PlannerTests(unittest.TestCase):
+    def settings(self):
+        return core.Settings(True, "ix0", "02:11:22:33:44:55")
+
+    def test_demotion_fences_before_down(self):
+        observed = core.ObservedState(
+            carp_states=("BACKUP",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=True,
+                link_up=True,
+                mac="02:11:22:33:44:55",
+                lagg_members=("ix0",),
+            ),
+        )
+        plan = core.plan_reconcile(self.settings(), observed)
+        self.assertEqual(plan.commands[0].argv[-2:], ("-laggport", "ix0"))
+        self.assertEqual(plan.commands[1].argv[-1], "down")
+
+    def test_promotion_attaches_before_mac_then_up(self):
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=False,
+                mac="00:aa:bb:cc:dd:ee",
+                lagg_members=(),
+            ),
+        )
+        plan = core.plan_reconcile(self.settings(), observed)
+        argv = [command.argv for command in plan.commands]
+        self.assertEqual(argv[0][-2:], ("laggport", "ix0"))
+        self.assertEqual(argv[1][-2:], ("ether", "02:11:22:33:44:55"))
+        self.assertEqual(argv[2][-1], "up")
+
+
+class ParseTests(unittest.TestCase):
+    SAMPLE = """ix0: flags=1008943<UP,BROADCAST,RUNNING,PROMISC,SIMPLEX,MULTICAST,LOWER_UP> metric 0 mtu 1500
+        ether 00:e0:ed:73:20:4e
+        carp: MASTER vhid 100 advbase 1 advskew 0
+        status: active
+wanha0: flags=1008943<UP,BROADCAST,RUNNING> metric 0 mtu 1500
+        ether 02:11:22:33:44:55
+        laggproto failover lagghash l2,l3,l4
+        laggport: ix0 flags=5<MASTER,ACTIVE>
+        status: active
+"""
+
+    def test_parse_carp(self):
+        self.assertEqual(core.parse_carp_states(self.SAMPLE), ("MASTER",))
+
+    def test_parse_interface(self):
+        snap = core.parse_interface_snapshot("wanha0", self.SAMPLE)
+        self.assertTrue(snap.exists)
+        self.assertTrue(snap.up)
+        self.assertTrue(snap.link_up)
+        self.assertEqual(snap.mac, "02:11:22:33:44:55")
+        self.assertEqual(snap.lagg_members, ("ix0",))
+
+
+if __name__ == "__main__":
+    unittest.main()
