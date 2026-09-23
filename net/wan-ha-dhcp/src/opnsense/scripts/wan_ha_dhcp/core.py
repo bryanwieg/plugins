@@ -18,7 +18,7 @@ import re
 from typing import Iterable
 
 
-WANHA_DEVICE = "wanha0"
+WANHA_DEVICE = "wanha0lagg"
 _MAC_RE = re.compile(r"^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$")
 
 
@@ -158,7 +158,7 @@ def desired_state(settings: Settings, observed: ObservedState) -> DesiredState:
         return DesiredState(
             GlobalRole.INDETERMINATE,
             DesiredAttachment.UNMANAGED,
-            "managed OPNsense interface is not assigned to wanha0",
+            "managed OPNsense interface is not assigned to wanha0lagg",
         )
 
     if not settings.enabled:
@@ -223,10 +223,10 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         plan.desired = DesiredState(
             desired.role,
             DesiredAttachment.FENCED,
-            "wanha0 exists but is not the expected LAGG abstraction",
+            "wanha0lagg exists but is not the expected LAGG abstraction",
         )
         plan.warnings.append(
-            "refusing to mutate an existing non-LAGG interface named wanha0"
+            "refusing to mutate an existing non-LAGG interface named wanha0lagg"
         )
         return plan
 
@@ -234,10 +234,10 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         plan.desired = DesiredState(
             desired.role,
             DesiredAttachment.FENCED,
-            f"wanha0 uses unsupported LAGG protocol {wanha.lagg_protocol}",
+            f"wanha0lagg uses unsupported LAGG protocol {wanha.lagg_protocol}",
         )
         plan.warnings.append(
-            "refusing to mutate wanha0 unless its LAGG protocol is failover"
+            "refusing to mutate wanha0lagg unless its LAGG protocol is failover"
         )
         return plan
 
