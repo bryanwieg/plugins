@@ -120,9 +120,9 @@ def is_locally_administered_unicast(value: str) -> bool:
 
 
 def generate_private_mac() -> str:
-    # Set the locally-administered bit and clear the multicast bit.
-    octets = bytearray(secrets.token_bytes(6))
-    octets[0] = (octets[0] | 0x02) & 0xFE
+    # Use the conventional 02: locally-administered unicast prefix and keep
+    # the remaining 40 bits cryptographically random.
+    octets = bytes([0x02]) + secrets.token_bytes(5)
     return ":".join(f"{byte:02x}" for byte in octets)
 
 
