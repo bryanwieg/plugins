@@ -25,7 +25,7 @@ class MacTests(unittest.TestCase):
         self.assertFalse(core.validate_shared_mac("ff:ff:ff:ff:ff:ff")[0])
 
     def test_generated_mac_is_local_unicast(self):
-        with patch.object(core.secrets, "token_bytes", return_value=bytes.fromhex("001122334455")):
+        with patch.object(core.secrets, "token_bytes", return_value=bytes.fromhex("1122334455")):
             mac = core.generate_private_mac()
         self.assertEqual(mac, "02:11:22:33:44:55")
         self.assertTrue(core.is_locally_administered_unicast(mac))
