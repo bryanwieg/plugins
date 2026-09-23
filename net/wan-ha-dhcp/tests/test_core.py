@@ -428,6 +428,49 @@ class FailbackTests(unittest.TestCase):
         self.assertIsNone(decision.state.healthy_since)
 
 
+    def test_failback_never_enables_admin_disabled_preemption(self):
+        decision = core.FailbackDecision(
+            state=core.FailbackState(),
+            allow_preempt=True,
+            remaining_seconds=0.0,
+            reason="complete",
+        )
+        self.assertFalse(
+            core.desired_preempt_enabled(
+                baseline_preempt_enabled=False,
+                failback=decision,
+            )
+        )
+
+    def test_failback_hold_suppresses_admin_enabled_preemption(self):
+        decision = core.FailbackDecision(
+            state=core.FailbackState(healthy_since=100.0),
+            allow_preempt=False,
+            remaining_seconds=60.0,
+            reason="hold",
+        )
+        self.assertFalse(
+            core.desired_preempt_enabled(
+                baseline_preempt_enabled=True,
+                failback=decision,
+            )
+        )
+
+    def test_completed_hold_restores_admin_enabled_preemption(self):
+        decision = core.FailbackDecision(
+            state=core.FailbackState(healthy_since=100.0),
+            allow_preempt=True,
+            remaining_seconds=0.0,
+            reason="complete",
+        )
+        self.assertTrue(
+            core.desired_preempt_enabled(
+                baseline_preempt_enabled=True,
+                failback=decision,
+            )
+        )
+
+
 class ParseTests(unittest.TestCase):
     SAMPLE = """ix0: flags=1008943<UP,BROADCAST,RUNNING,PROMISC,SIMPLEX,MULTICAST,LOWER_UP> metric 0 mtu 1500
         ether 00:e0:ed:73:20:4e
