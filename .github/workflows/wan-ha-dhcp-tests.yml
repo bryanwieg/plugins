@@ -30,5 +30,9 @@ jobs:
           python -m unittest discover -s net/wan-ha-dhcp/tests -v
       - name: PHP syntax lint
         run: |
-          find net/wan-ha-dhcp/src -type f -name '*.php' -print0 |
+          find net/wan-ha-dhcp/src -type f \( -name '*.php' -o -name '*.inc' \) -print0 |
             xargs -0 -n1 php -l
+      - name: Package script syntax lint
+        run: |
+          sh -n net/wan-ha-dhcp/+PRE_DEINSTALL.pre
+          sh -n net/wan-ha-dhcp/+POST_DEINSTALL.post
