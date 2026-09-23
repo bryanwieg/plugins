@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import secrets
 import re
-from typing import Iterable, Sequence
+from typing import Iterable
 
 
 WANHA_DEVICE = "wanha0"
@@ -36,7 +36,7 @@ class DesiredAttachment(str, Enum):
 @dataclass(frozen=True)
 class InterfaceSnapshot:
     name: str
-    exists: bool = True
+    exists: bool = False
     up: bool = False
     link_up: bool = False
     mac: str | None = None
@@ -166,6 +166,9 @@ def desired_state(settings: Settings, observed: ObservedState) -> DesiredState:
     if role is not GlobalRole.MASTER:
         return DesiredState(role, DesiredAttachment.FENCED, f"global CARP role is {role.value}")
 
+    if not settings.carrier.strip():
+        return DesiredState(role, DesiredAttachment.FENCED, "local carrier is not configured")
+
     carrier = observed.carrier
     if carrier is None or not carrier.exists:
         return DesiredState(role, DesiredAttachment.FENCED, "configured local carrier is missing")
@@ -180,20 +183,24 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
     Build a deterministic mutation plan for the provisional single-member
     LAGG design.
 
-    No command is executed here.  In particular, demotion plans always remove
-    the carrier before any non-safety-critical cleanup: fence first.
+    No command is executed here.  In particular, demotion plans remove every
+    carrier before any non-safety-critical cleanup: fence first.
     """
     desired = desired_state(settings, observed)
     plan = Plan(desired=desired)
 
     wanha = observed.wanha or InterfaceSnapshot(name=WANHA_DEVICE, exists=False)
-    member_present = settings.carrier in wanha.lagg_members
+    members = tuple(wanha.lagg_members)
+    member_present = settings.carrier in members
+    foreign_members = tuple(member for member in members if member != settings.carrier)
 
     if desired.attachment is DesiredAttachment.FENCED:
-        if wanha.exists and member_present:
+        # Remove every observed member.  This also fences a stale previous
+        # carrier after a node-local configuration change.
+        for member in members:
             plan.commands.append(
                 Command(
-                    ("/sbin/ifconfig", WANHA_DEVICE, "-laggport", settings.carrier),
+                    ("/sbin/ifconfig", WANHA_DEVICE, "-laggport", member),
                     "fence ISP Layer-2 path before cleanup",
                 )
             )
@@ -206,12 +213,33 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
             )
         return plan
 
+    shared_mac = normalize_mac(settings.shared_mac)
+    already_correct = (
+        wanha.exists
+        and wanha.up
+        and members == (settings.carrier,)
+        and wanha.mac is not None
+        and wanha.mac.lower() == shared_mac
+    )
+    if already_correct:
+        return plan
+
     # MASTER path.
     if not wanha.exists:
         plan.commands.append(
             Command(
                 ("/sbin/ifconfig", "lagg", "create", "name", WANHA_DEVICE),
                 "create stable logical WAN abstraction (prototype-gated syntax)",
+            )
+        )
+
+    # A stale/foreign member is an unsafe path. Fence it before preparing the
+    # desired carrier.
+    for member in foreign_members:
+        plan.commands.append(
+            Command(
+                ("/sbin/ifconfig", WANHA_DEVICE, "-laggport", member),
+                "remove stale carrier before ownership transition",
             )
         )
 
@@ -232,7 +260,6 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
             )
         )
 
-    shared_mac = normalize_mac(settings.shared_mac)
     if wanha.mac is None or wanha.mac.lower() != shared_mac:
         plan.commands.append(
             Command(
