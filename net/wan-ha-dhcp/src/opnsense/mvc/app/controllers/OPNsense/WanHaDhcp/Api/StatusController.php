@@ -22,7 +22,7 @@ class StatusController extends ApiControllerBase
         $result = [];
 
         foreach ($devices as $name => $details) {
-            if ($name === 'wanha0lagg' || isset($blocked[$name])) {
+            if ($name === 'wanha0lagglagg' || isset($blocked[$name])) {
                 continue;
             }
 
