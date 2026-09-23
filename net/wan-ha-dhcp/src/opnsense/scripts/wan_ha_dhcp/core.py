@@ -228,8 +228,14 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
     if not wanha.exists:
         plan.commands.append(
             Command(
-                ("/sbin/ifconfig", "lagg", "create", "name", WANHA_DEVICE),
-                "create stable logical WAN abstraction (prototype-gated syntax)",
+                ("/sbin/ifconfig", "lagg", "create"),
+                "create a numbered LAGG; capture the returned device name",
+            )
+        )
+        plan.commands.append(
+            Command(
+                ("/sbin/ifconfig", "<created-lagg>", "name", WANHA_DEVICE),
+                "rename the newly-created LAGG to the stable WAN HA device name",
             )
         )
 
