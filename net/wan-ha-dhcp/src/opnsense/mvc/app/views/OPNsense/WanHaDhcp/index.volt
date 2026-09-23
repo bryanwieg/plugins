@@ -27,6 +27,14 @@ $(document).ready(function() {
         return dfObj;
     }
 
+    ajaxCall("/api/wanhadhcp/status/environment", {}, function(data, status) {
+        if (status === "success") {
+            $("#globalRole").text(data.global_role || "UNKNOWN");
+            $("#carpDemotion").text((data.carp && data.carp.demotion !== undefined) ? data.carp.demotion : "?");
+            $("#carpAllowed").text((data.carp && data.carp.allow !== undefined) ? data.carp.allow : "?");
+        }
+    });
+
     loadCarrierOptions().always(function() {
         mapDataToFormUI({
             "frm_SharedSettings": "/api/wanhadhcp/shared/get",
@@ -74,6 +82,19 @@ $(document).ready(function() {
     <div class="alert alert-warning">
         {{ lang._('Experimental implementation scaffold. The dataplane fencing mechanism remains prototype-gated and this page does not yet activate automatic WAN carrier movement.') }}
     </div>
+
+    <div class="content-box">
+        <div class="col-md-12">
+            <h4>{{ lang._('Detected HA State') }}</h4>
+            <table class="table table-condensed">
+                <tr><td>{{ lang._('Global CARP role') }}</td><td id="globalRole">...</td></tr>
+                <tr><td>{{ lang._('CARP demotion') }}</td><td id="carpDemotion">...</td></tr>
+                <tr><td>{{ lang._('CARP allowed') }}</td><td id="carpAllowed">...</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <br/>
 
     <div class="content-box">
         {{ partial("layout_partials/base_form", ['fields': shared, 'id': 'frm_SharedSettings']) }}
