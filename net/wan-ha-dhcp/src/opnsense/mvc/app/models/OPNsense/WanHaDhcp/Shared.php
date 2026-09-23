@@ -39,6 +39,31 @@ class Shared extends BaseModel
         }
 
         $local = new Local();
+        $localCarrier = trim((string)$local->carrier);
+
+        if (!empty($mac)) {
+            $runtimeInterfaces = json_decode((new Backend())->configdRun('interface list ifconfig'), true) ?? [];
+            foreach ($runtimeInterfaces as $ifname => $details) {
+                if ($ifname === $localCarrier || $ifname === 'wanha0lagg') {
+                    continue;
+                }
+                $runtimeMacs = array_filter([
+                    strtolower((string)($details['macaddr'] ?? '')),
+                    strtolower((string)($details['macaddr_hw'] ?? '')),
+                ]);
+                if (in_array($mac, $runtimeMacs, true)) {
+                    $messages->appendMessage(new Message(
+                        sprintf(
+                            gettext('The shared WAN MAC duplicates local interface %s; choose a unique shared identity or the selected WAN carrier MAC.'),
+                            $ifname
+                        ),
+                        $this->shared_mac->getInternalXMLTagName()
+                    ));
+                    break;
+                }
+            }
+        }
+
         if (empty(trim((string)$local->carrier))) {
             $messages->appendMessage(new Message(
                 gettext('Configure a valid local WAN carrier on this node before enabling WAN HA DHCP.'),
