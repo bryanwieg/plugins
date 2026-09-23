@@ -55,7 +55,16 @@ function wan_ha_dhcp_prepare_device($device)
         }
     }
 
-    return does_interface_exist($device) ? $device : null;
+    $details = legacy_interfaces_details($device);
+    if (empty($details[$device]['laggproto'])) {
+        log_msg(sprintf(
+            'WAN HA DHCP refused device %s because it exists but is not a LAGG interface',
+            $device
+        ), LOG_ERR);
+        return null;
+    }
+
+    return $device;
 }
 
 function wan_ha_dhcp_xmlrpc_sync()
