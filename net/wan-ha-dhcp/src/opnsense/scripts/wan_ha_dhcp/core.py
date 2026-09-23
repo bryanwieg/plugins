@@ -51,6 +51,7 @@ class ObservedState:
     carp_states: tuple[str, ...] = ()
     carp_allowed: bool = True
     carp_maintenance: bool = False
+    wanha_owned: bool = False
     carrier: InterfaceSnapshot | None = None
     wanha: InterfaceSnapshot | None = None
 
@@ -219,6 +220,22 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
 
     wanha = observed.wanha or InterfaceSnapshot(name=WANHA_DEVICE, exists=False)
 
+    if desired.attachment is DesiredAttachment.UNMANAGED:
+        # Pre-migration / configuration-only state. Never touch the carrier or
+        # claim ownership of a same-name device.
+        return plan
+
+    if wanha.exists and not observed.wanha_owned:
+        plan.desired = DesiredState(
+            desired.role,
+            DesiredAttachment.FENCED,
+            "wanha0lagg exists but is not marked as plugin-owned",
+        )
+        plan.warnings.append(
+            "refusing to mutate an existing wanha0lagg without the runtime ownership marker"
+        )
+        return plan
+
     if wanha.exists and wanha.lagg_protocol is None:
         plan.desired = DesiredState(
             desired.role,
@@ -244,10 +261,6 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
     members = tuple(wanha.lagg_members)
     member_present = settings.carrier in members
     foreign_members = tuple(member for member in members if member != settings.carrier)
-
-    if desired.attachment is DesiredAttachment.UNMANAGED:
-        # Pre-migration / configuration-only state. Never touch the carrier.
-        return plan
 
     if desired.attachment is DesiredAttachment.FENCED:
         # Remove every observed member.  This also fences a stale previous
