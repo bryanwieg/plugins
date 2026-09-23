@@ -282,6 +282,87 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
     return plan
 
 
+@dataclass(frozen=True)
+class FailbackState:
+    healthy_since: float | None = None
+
+
+@dataclass(frozen=True)
+class FailbackDecision:
+    state: FailbackState
+    allow_preempt: bool
+    remaining_seconds: float
+    reason: str
+
+
+def evaluate_failback(
+    *,
+    now: float,
+    delay_seconds: int,
+    preferred_node: bool,
+    local_is_master: bool,
+    peer_master_present: bool,
+    local_healthy: bool,
+    state: FailbackState,
+) -> FailbackDecision:
+    """
+    Evaluate policy only; it does not manipulate CARP.
+
+    A preferred recovered BACKUP waits before preempting a living MASTER.
+    The hold must never block emergency takeover after the current MASTER
+    disappears.
+    """
+    delay = max(0, int(delay_seconds))
+
+    if local_is_master:
+        return FailbackDecision(FailbackState(), True, 0.0, "local node is already MASTER")
+
+    if not peer_master_present:
+        return FailbackDecision(
+            FailbackState(),
+            True,
+            0.0,
+            "no living peer MASTER; emergency takeover must not be delayed",
+        )
+
+    if not preferred_node:
+        return FailbackDecision(
+            FailbackState(),
+            True,
+            0.0,
+            "local node is not preferred; no plugin failback hold is required",
+        )
+
+    if not local_healthy:
+        return FailbackDecision(
+            FailbackState(),
+            False,
+            float(delay),
+            "local health is not continuously good; failback timer reset",
+        )
+
+    if delay == 0:
+        return FailbackDecision(FailbackState(), True, 0.0, "failback delay is disabled")
+
+    healthy_since = state.healthy_since if state.healthy_since is not None else now
+    elapsed = max(0.0, now - healthy_since)
+    remaining = max(0.0, delay - elapsed)
+    if remaining <= 0:
+        return FailbackDecision(
+            FailbackState(healthy_since),
+            True,
+            0.0,
+            "continuous healthy failback delay completed",
+        )
+
+    return FailbackDecision(
+        FailbackState(healthy_since),
+        False,
+        remaining,
+        "preferred node is in recovery hold while peer remains MASTER",
+    )
+
+
 def parse_carp_states(ifconfig_text: str) -> tuple[str, ...]:
     states: list[str] = []
     for line in ifconfig_text.splitlines():
