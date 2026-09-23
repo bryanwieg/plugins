@@ -23,6 +23,11 @@ class Shared extends BaseModel
                 gettext('A shared WAN MAC is required when WAN HA DHCP is enabled.'),
                 $this->shared_mac->getInternalXMLTagName()
             ));
+        } elseif (!preg_match('/^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/', $mac)) {
+            $messages->appendMessage(new Message(
+                gettext('Use a colon-delimited MAC address such as 02:11:22:33:44:55.'),
+                $this->shared_mac->getInternalXMLTagName()
+            ));
         } elseif (filter_var($mac, FILTER_VALIDATE_MAC)) {
             $octets = array_map('hexdec', explode(':', $mac));
             if ($mac === '00:00:00:00:00:00' || $mac === 'ff:ff:ff:ff:ff:ff' || ($octets[0] & 0x01)) {
