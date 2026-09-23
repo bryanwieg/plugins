@@ -32,6 +32,17 @@ $(document).ready(function() {
             $("#globalRole").text(data.global_role || "UNKNOWN");
             $("#carpDemotion").text((data.carp && data.carp.demotion !== undefined) ? data.carp.demotion : "?");
             $("#carpAllowed").text((data.carp && data.carp.allow !== undefined) ? data.carp.allow : "?");
+            $("#carpMaintenance").text((data.carp && data.carp.maintenancemode) ? "{{ lang._('Yes') }}" : "{{ lang._('No') }}");
+            $("#managedDevice").text((data.managed && data.managed.device) ? data.managed.device : "?");
+            $("#managedIPv4").text((data.managed && data.managed.ipv4) ? data.managed.ipv4 : "?");
+            $("#managedIPv6").text((data.managed && data.managed.ipv6) ? data.managed.ipv6 : "{{ lang._('None') }}");
+            $("#nativeSpoofMac").text((data.managed && data.managed.spoof_mac) ? data.managed.spoof_mac : "{{ lang._('None') }}");
+            $("#pfsyncInterface").text((data.ha && data.ha.pfsync_interface) ? data.ha.pfsync_interface : "{{ lang._('Disabled') }}");
+            $("#pfsyncPeer").text((data.ha && data.ha.pfsync_peer) ? data.ha.pfsync_peer : "{{ lang._('Not configured') }}");
+            $("#xmlrpcTarget").text((data.ha && data.ha.xmlrpc_target) ? data.ha.xmlrpc_target : "{{ lang._('Not configured') }}");
+            if (data.managed && data.managed.spoof_mac) {
+                $("#existingMac").data("mac", data.managed.spoof_mac).show();
+            }
         }
     });
 
@@ -42,6 +53,13 @@ $(document).ready(function() {
         }).done(function() {
             $(".selectpicker").selectpicker("refresh");
         });
+    });
+
+    $("#existingMac").click(function() {
+        const mac = $(this).data("mac");
+        if (mac) {
+            $("#wanhashared\\.shared_mac").val(mac);
+        }
     });
 
     $("#generateMac").click(function() {
@@ -94,6 +112,14 @@ $(document).ready(function() {
                 <tr><td>{{ lang._('Global CARP role') }}</td><td id="globalRole">...</td></tr>
                 <tr><td>{{ lang._('CARP demotion') }}</td><td id="carpDemotion">...</td></tr>
                 <tr><td>{{ lang._('CARP allowed') }}</td><td id="carpAllowed">...</td></tr>
+                <tr><td>{{ lang._('CARP maintenance mode') }}</td><td id="carpMaintenance">...</td></tr>
+                <tr><td>{{ lang._('Managed WAN device') }}</td><td id="managedDevice">...</td></tr>
+                <tr><td>{{ lang._('Managed WAN IPv4 type') }}</td><td id="managedIPv4">...</td></tr>
+                <tr><td>{{ lang._('Managed WAN IPv6 type') }}</td><td id="managedIPv6">...</td></tr>
+                <tr><td>{{ lang._('Native WAN spoof MAC') }}</td><td id="nativeSpoofMac">...</td></tr>
+                <tr><td>{{ lang._('pfsync interface') }}</td><td id="pfsyncInterface">...</td></tr>
+                <tr><td>{{ lang._('pfsync peer') }}</td><td id="pfsyncPeer">...</td></tr>
+                <tr><td>{{ lang._('XMLRPC target') }}</td><td id="xmlrpcTarget">...</td></tr>
             </table>
         </div>
     </div>
@@ -105,6 +131,9 @@ $(document).ready(function() {
         <div class="col-md-12">
             <button class="btn btn-default" id="generateMac" type="button">
                 {{ lang._('Generate Private MAC') }}
+            </button>
+            <button class="btn btn-default" id="existingMac" type="button" style="display:none">
+                {{ lang._('Use Existing WAN Spoof MAC') }}
             </button>
             <br/><br/>
         </div>
