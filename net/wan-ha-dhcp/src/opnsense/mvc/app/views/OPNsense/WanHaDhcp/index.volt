@@ -40,6 +40,7 @@ $(document).ready(function() {
             $("#pfsyncInterface").text((data.ha && data.ha.pfsync_interface) ? data.ha.pfsync_interface : "{{ lang._('Disabled') }}");
             $("#pfsyncPeer").text((data.ha && data.ha.pfsync_peer) ? data.ha.pfsync_peer : "{{ lang._('Not configured') }}");
             $("#xmlrpcTarget").text((data.ha && data.ha.xmlrpc_target) ? data.ha.xmlrpc_target : "{{ lang._('Not configured') }}");
+            $("#pluginSync").text((data.ha && data.ha.plugin_sync_enabled) ? "{{ lang._('Enabled') }}" : "{{ lang._('Not selected') }}");
             if (data.managed && data.managed.spoof_mac) {
                 $("#existingMac").data("mac", data.managed.spoof_mac).show();
             }
@@ -120,6 +121,7 @@ $(document).ready(function() {
                 <tr><td>{{ lang._('pfsync interface') }}</td><td id="pfsyncInterface">...</td></tr>
                 <tr><td>{{ lang._('pfsync peer') }}</td><td id="pfsyncPeer">...</td></tr>
                 <tr><td>{{ lang._('XMLRPC target') }}</td><td id="xmlrpcTarget">...</td></tr>
+                <tr><td>{{ lang._('WAN HA DHCP config sync') }}</td><td id="pluginSync">...</td></tr>
             </table>
         </div>
     </div>
