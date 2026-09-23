@@ -64,6 +64,25 @@ class MetadataTests(unittest.TestCase):
         self.assertIn("'volatile' => true", integration)
         self.assertIn("'name' => 'wanha0lagg'", integration)
 
+    def test_no_double_renamed_device_literals(self):
+        for path in (PLUGIN / "src").rglob("*"):
+            if not path.is_file():
+                continue
+            try:
+                content = path.read_text()
+            except UnicodeDecodeError:
+                continue
+            with self.subTest(path=path):
+                self.assertNotIn("wanha0lagglagg", content)
+
+    def test_registration_functions_are_unique(self):
+        integration = (
+            PLUGIN / "src/etc/inc/plugins.inc.d/wan_ha_dhcp.inc"
+        ).read_text()
+        self.assertEqual(integration.count("function wan_ha_dhcp_devices("), 1)
+        self.assertEqual(integration.count("function wan_ha_dhcp_prepare_device("), 1)
+        self.assertEqual(integration.count("function wan_ha_dhcp_xmlrpc_sync("), 1)
+
     def test_uninstall_guard_uses_stable_device_name(self):
         pre = (PLUGIN / "+PRE_DEINSTALL.pre").read_text()
         post = (PLUGIN / "+POST_DEINSTALL.post").read_text()
