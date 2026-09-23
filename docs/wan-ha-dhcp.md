@@ -569,16 +569,20 @@ Migration should be wizard-assisted and deliberately reversible.
 
 ### 22.2 Safe deployment outline
 
-1. Install plugin on both nodes while disabled.
+1. Install the plugin on both nodes with **Enable WAN HA DHCP off**.
 2. Configure each node's local carrier independently.
-3. Configure shared settings on the preferred configuration source.
-4. Synchronize shared plugin configuration only after both nodes have valid node-local carrier configuration.
-5. Validate CARP/pfsync/global role and carrier compatibility on both nodes.
+3. Configure the shared managed-interface, shared-MAC, and failback settings on the preferred configuration source while the plugin remains disabled.
+4. Synchronize the **disabled** shared plugin configuration only after both nodes have valid node-local carrier configuration. A peer that has not yet migrated its logical WAN remains safe because the controller treats "managed interface is not assigned to `wanha0lagg`" as `UNMANAGED` and performs no carrier mutation.
+5. Remove any CARP VIPs from the managed ISP-facing WAN, then validate native CARP/pfsync/global role and carrier compatibility on both nodes.
 6. Create/validate `wanha0lagg` detached on both nodes.
-7. Migrate the BACKUP logical WAN assignment to `wanha0lagg`; verify it remains fenced.
-8. Perform a controlled migration of the MASTER logical WAN assignment to `wanha0lagg`; expect one deployment interruption while native DHCP reacquires.
-9. Verify only MASTER emits ISP-facing frames/shared MAC.
-10. Perform controlled failover tests before declaring deployment complete.
+7. Migrate the BACKUP logical WAN assignment to `wanha0lagg`; verify it remains fenced. This should not affect active Internet service.
+8. Perform a controlled migration of the MASTER logical WAN assignment to `wanha0lagg`. Because the plugin is still disabled and the virtual WAN is intentionally detached, expect a bounded deployment interruption at this point.
+9. Enable WAN HA DHCP on the MASTER only after its logical WAN is assigned to `wanha0lagg` and all local validation passes. The controller may then attach the local carrier, apply the shared MAC, and allow native DHCP to converge.
+10. Synchronize/confirm the enabled shared setting to the already-migrated BACKUP and verify that it remains physically fenced.
+11. Verify only MASTER emits ISP-facing frames/shared MAC.
+12. Perform controlled failover tests before declaring deployment complete.
+
+The UI/model MUST permit shared settings to be saved while disabled even when migration is incomplete, but MUST reject **enablement** until the local node has a valid carrier, a correctly created `wanha0lagg`, a DHCP/IPv4-only managed WAN assigned to that device, and no CARP VIP/native spoof-MAC conflict on the managed WAN.
 
 Exact wizard automation is implementation-phase work; safety ordering is mandatory.
 
