@@ -13,8 +13,15 @@ class Local extends BaseModel
     {
         $messages = parent::performValidation($validateFullModel);
         $carrier = trim((string)$this->carrier);
+        $shared = new Shared();
 
         if (empty($carrier)) {
+            if (!empty((string)$shared->enabled)) {
+                $messages->appendMessage(new Message(
+                    gettext('A local WAN carrier is required when WAN HA DHCP is enabled.'),
+                    $this->carrier->getInternalXMLTagName()
+                ));
+            }
             return $messages;
         }
 
@@ -37,7 +44,6 @@ class Local extends BaseModel
         }
 
         $config = Config::getInstance()->object();
-        $shared = new Shared();
         $managedInterface = (string)$shared->managed_interface;
 
         if (!empty($config->interfaces)) {
