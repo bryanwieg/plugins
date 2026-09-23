@@ -194,14 +194,16 @@ v1 is designed and tested for a two-node active/passive CARP pair. Multi-node CA
 
 Both nodes MUST expose the same kernel interface name to OPNsense/PF for the managed WAN. This addresses the pfsync/state-continuity problem created when one node uses, for example, `ix0` and the other uses `vlan0.100` or `hn1`.
 
-The desired logical device name is provisionally **`wanha0`**.
+The desired logical device name is provisionally **`wanha0lagg`**.
+
+The suffix is deliberate. OPNsense 26.7 still has legacy paths whose virtual-interface classifier splits device names on digits and compares the resulting tokens against a hard-coded set including `lagg`. A bare `wanha0` would therefore be misclassified as physical. Conversely, a name beginning with `lagg` risks colliding with OPNsense's core-managed `^lagg` device family and normal `<laggs>` configuration. `wanha0lagg` is intended to satisfy both constraints: it contains a post-digit `lagg` token for virtual classification, but does not start with `lagg`. Prototype Gate A MUST verify this behavior on every supported OPNsense series.
 
 Both nodes ultimately present:
 
 ```text
 OPNsense logical WAN
         |
-      wanha0
+      wanha0lagg
         |
 local carrier (MASTER only)
 ```
@@ -211,11 +213,11 @@ local carrier (MASTER only)
 The leading implementation candidate is a FreeBSD LAGG used as an abstraction/fencing layer:
 
 ```text
-HA-1: ix0  -> wanha0 -> OPNsense WAN
-HA-2: hn1  -> wanha0 -> OPNsense WAN
+HA-1: ix0  -> wanha0lagg -> OPNsense WAN
+HA-2: hn1  -> wanha0lagg -> OPNsense WAN
 ```
 
-On MASTER, the local carrier is inserted as the sole member. On BACKUP, `wanha0` remains present but has no physical member.
+On MASTER, the local carrier is inserted as the sole member. On BACKUP, `wanha0lagg` remains present but has no physical member.
 
 This candidate is **not frozen** until Prototype Gate A succeeds. The required behavior is the contract; LAGG is currently the minimal candidate implementation.
 
@@ -240,7 +242,7 @@ Safety depends on **physical/L2 exclusivity**, not on racing OPNsense DHCP proce
 
 The fundamental invariant is:
 
-> A node that is not unequivocally global CARP MASTER MUST have no Layer-2 path from `wanha0` to its selected ISP carrier.
+> A node that is not unequivocally global CARP MASTER MUST have no Layer-2 path from `wanha0lagg` to its selected ISP carrier.
 
 Consequences:
 
@@ -257,11 +259,11 @@ Provisional promotion sequence:
 2. Re-read all current kernel CARP states.
 3. Abort unless global role is unequivocally MASTER.
 4. Verify local carrier exists and is locally healthy.
-5. Keep `wanha0` non-forwarding/down while preparing it.
+5. Keep `wanha0lagg` non-forwarding/down while preparing it.
 6. Attach/add the local carrier to the abstraction.
 7. Apply the configured shared WAN MAC in the ordering proven by Prototype Gate A.
 8. Verify effective interface/member MAC behavior.
-9. Bring/allow `wanha0` carrier up.
+9. Bring/allow `wanha0lagg` carrier up.
 10. Allow native OPNsense DHCP behavior to converge.
 11. Verify local controller invariants and enter `ACTIVE`.
 
@@ -269,7 +271,7 @@ Provisional promotion sequence:
 
 1. Detect that global CARP state is no longer unequivocally MASTER.
 2. Acquire transition lock.
-3. **Fence first:** remove/detach the local carrier from `wanha0`.
+3. **Fence first:** remove/detach the local carrier from `wanha0lagg`.
 4. Verify that no L2 ISP path remains.
 5. Perform any non-safety-critical cleanup/reconciliation.
 6. Enter `STANDBY`.
@@ -358,7 +360,7 @@ Examples:
 
 - Configured local carrier no longer exists.
 - Local physical/virtual carrier link is down.
-- Required `wanha0` abstraction is missing or cannot be reconciled.
+- Required `wanha0lagg` abstraction is missing or cannot be reconciled.
 - Unsafe fencing state is detected.
 - Controller cannot establish required local invariants.
 
@@ -477,9 +479,9 @@ Disabling the plugin MUST fail closed: the managed WAN carrier is fenced rather 
 
 ### 20.2 Uninstall
 
-If OPNsense `WAN` is still assigned to the plugin-owned `wanha0`, uninstalling removes the management layer needed to recreate it. The UI and package lifecycle MUST therefore provide a strong warning/guard:
+If OPNsense `WAN` is still assigned to the plugin-owned `wanha0lagg`, uninstalling removes the management layer needed to recreate it. The UI and package lifecycle MUST therefore provide a strong warning/guard:
 
-> Reassign the logical WAN away from `wanha0` before uninstalling `os-wan-ha-dhcp`.
+> Reassign the logical WAN away from `wanha0lagg` before uninstalling `os-wan-ha-dhcp`.
 
 If a hard uninstall guard is practical within the plugin packaging framework, it should be preferred over a warning alone.
 
@@ -518,7 +520,7 @@ Status SHOULD include:
 - Controller state (`ACTIVE`, `STANDBY`, `RECOVERY_HOLD`, `FAULT`, etc.).
 - Managed logical interface.
 - Local carrier and link state.
-- `wanha0` existence and carrier/member attachment.
+- `wanha0lagg` existence and carrier/member attachment.
 - Shared and effective MAC.
 - Native DHCP/public IPv4/gateway status where available.
 - pfsync configuration/runtime health and defer status.
@@ -561,9 +563,9 @@ Migration should be wizard-assisted and deliberately reversible.
 3. Configure shared settings on the preferred configuration source.
 4. Synchronize shared plugin configuration only after both nodes have valid node-local carrier configuration.
 5. Validate CARP/pfsync/global role and carrier compatibility on both nodes.
-6. Create/validate `wanha0` detached on both nodes.
-7. Migrate the BACKUP logical WAN assignment to `wanha0`; verify it remains fenced.
-8. Perform a controlled migration of the MASTER logical WAN assignment to `wanha0`; expect one deployment interruption while native DHCP reacquires.
+6. Create/validate `wanha0lagg` detached on both nodes.
+7. Migrate the BACKUP logical WAN assignment to `wanha0lagg`; verify it remains fenced.
+8. Perform a controlled migration of the MASTER logical WAN assignment to `wanha0lagg`; expect one deployment interruption while native DHCP reacquires.
 9. Verify only MASTER emits ISP-facing frames/shared MAC.
 10. Perform controlled failover tests before declaring deployment complete.
 
@@ -689,7 +691,7 @@ At minimum test:
 14. OPNsense config reload/interface reconfigure.
 15. Plugin package upgrade.
 16. Plugin disable.
-17. Uninstall guard/warning while `WAN` still uses `wanha0`.
+17. Uninstall guard/warning while `WAN` still uses `wanha0lagg`.
 18. Shared MAC changed intentionally.
 19. Wrong/invalid shared MAC rejected.
 20. Hyper-V MAC spoofing disabled — validation/diagnostics must make failure understandable.
@@ -719,7 +721,7 @@ Repository policy requires every proposed abstraction/boundary/state store/retry
 |---|---|---|
 | Native CARP as sole election authority | Avoid split-brain between two election systems; preserve OPNsense maintenance/demotion semantics | Reuses an existing proven authority instead of inventing one |
 | Global all-MASTER test | Keep all CARP ownership aligned with WAN ownership | Matches OPNsense's own master-only behavior |
-| `wanha0` stable logical WAN | pfsync/PF need matching WAN interface identity across heterogeneous NICs | Removes driver/interface-name mismatch from the PF-facing dataplane |
+| `wanha0lagg` stable logical WAN | pfsync/PF need matching WAN interface identity across heterogeneous NICs | Removes driver/interface-name mismatch from the PF-facing dataplane |
 | Provisional single-member LAGG | Need stable WAN object plus reversible hard L2 carrier fence | Minimal FreeBSD-native candidate; prototype-gated |
 | Node-local carrier field | Physical nodes may use `ix`, VM nodes `hn`, etc. | Cannot be shared/synchronized safely |
 | Shared MAC field | ISP sees one stable ordinary DHCP Ethernet client across nodes | CARP MAC may be rejected; hardware MACs differ |
@@ -775,7 +777,7 @@ Small PR:
 
 Focused PR:
 
-- `wanha0` lifecycle using the Gate A-selected primitive.
+- `wanha0lagg` lifecycle using the Gate A-selected primitive.
 - Idempotent reconciliation and transition lock.
 - CARP fast-path hook.
 - Periodic safety reconciliation.
@@ -857,7 +859,7 @@ A release candidate is acceptable only when all of the following are demonstrate
 
 Only these implementation questions remain intentionally unresolved:
 
-1. Is a single-member LAGG the cleanest stable `wanha0` implementation on OPNsense 26.7, including renamed/interface-registration behavior?
+1. Is a single-member LAGG the cleanest stable `wanha0lagg` implementation on OPNsense 26.7, including renamed/interface-registration behavior?
 2. What exact MAC/member operation ordering guarantees the shared MAC after attach?
 3. Does native DHCP automatically reconverge on member/carrier reattachment, or is one documented `configctl` reconfigure action required?
 4. Which failback-hold mechanism prevents normal preemption while preserving immediate takeover after loss of the current MASTER?
