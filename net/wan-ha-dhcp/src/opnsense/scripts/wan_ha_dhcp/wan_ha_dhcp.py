@@ -67,6 +67,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         enabled=args.enabled,
         carrier=args.carrier,
         shared_mac=args.shared_mac,
+        managed_mtu=args.mtu,
     )
     carp_allowed = read_carp_allowed()
     observed = ObservedState(
@@ -110,6 +111,12 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--carrier", required=True)
     status.add_argument("--shared-mac", required=True)
     status.add_argument("--enabled", action="store_true")
+    status.add_argument(
+        "--mtu",
+        type=int,
+        default=None,
+        help="native managed WAN MTU to inherit for dry-run planning",
+    )
     status.set_defaults(func=cmd_status)
 
     return parser
