@@ -89,6 +89,10 @@ function wan_ha_dhcp_prepare_device($device)
             'WAN HA DHCP refused device %s because it exists but is not a LAGG interface',
             $device
         ), LOG_ERR);
+        if ($created) {
+            @unlink($ownership_marker);
+            legacy_interface_destroy($device);
+        }
         return null;
     }
     if ($details[$device]['laggproto'] !== 'failover') {
@@ -97,6 +101,10 @@ function wan_ha_dhcp_prepare_device($device)
             $device,
             $details[$device]['laggproto']
         ), LOG_ERR);
+        if ($created) {
+            @unlink($ownership_marker);
+            legacy_interface_destroy($device);
+        }
         return null;
     }
 
