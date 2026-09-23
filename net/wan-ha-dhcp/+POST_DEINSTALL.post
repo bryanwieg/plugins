@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# During an upgrade, preserve the live kernel dataplane for the replacement
+# package.  Intentional removal is already guarded by +PRE_DEINSTALL.
+if [ -n "${PKG_UPGRADE:-}" ]; then
+    exit 0
+fi
+
+if /sbin/ifconfig wanha0 >/dev/null 2>&1; then
+    if /sbin/ifconfig wanha0 2>/dev/null | /usr/bin/grep -q 'laggproto '; then
+        /sbin/ifconfig wanha0 destroy >/dev/null 2>&1 || exit 1
+    else
+        echo "os-wan-ha-dhcp: wanha0 exists but is not a LAGG; leaving it untouched." >&2
+    fi
+fi
+
+exit 0
