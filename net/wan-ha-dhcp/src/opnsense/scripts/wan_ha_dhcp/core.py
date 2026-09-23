@@ -46,6 +46,7 @@ class InterfaceSnapshot:
 @dataclass(frozen=True)
 class ObservedState:
     carp_states: tuple[str, ...] = ()
+    carp_allowed: bool = True
     carrier: InterfaceSnapshot | None = None
     wanha: InterfaceSnapshot | None = None
 
@@ -160,6 +161,13 @@ def desired_state(settings: Settings, observed: ObservedState) -> DesiredState:
             GlobalRole.INDETERMINATE,
             DesiredAttachment.FENCED,
             f"invalid shared MAC: {error}",
+        )
+
+    if not observed.carp_allowed:
+        return DesiredState(
+            GlobalRole.INDETERMINATE,
+            DesiredAttachment.FENCED,
+            "CARP is administratively disabled",
         )
 
     role = reduce_carp_role(observed.carp_states)
