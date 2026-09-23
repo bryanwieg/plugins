@@ -29,10 +29,10 @@ function wan_ha_dhcp_devices()
         'volatile' => true,
         'type' => 'wanha',
         'names' => [
-            'wanha0lagg' => [
-                'descr' => gettext('wanha0lagg (WAN HA DHCP)'),
+            'wanha0lagglagg' => [
+                'descr' => gettext('wanha0lagglagg (WAN HA DHCP)'),
                 'ifdescr' => gettext('WAN HA DHCP'),
-                'name' => 'wanha0lagg',
+                'name' => 'wanha0lagglagg',
             ],
         ],
     ]];
@@ -40,7 +40,7 @@ function wan_ha_dhcp_devices()
 
 function wan_ha_dhcp_prepare_device($device)
 {
-    if ($device !== 'wanha0lagg') {
+    if ($device !== 'wanha0lagglagg') {
         return null;
     }
 
@@ -90,10 +90,10 @@ function wan_ha_dhcp_xmlrpc_sync()
         'volatile' => true,
         'type' => 'wanha',
         'names' => [
-            'wanha0lagg' => [
-                'descr' => gettext('wanha0lagg (WAN HA DHCP)'),
+            'wanha0lagglagg' => [
+                'descr' => gettext('wanha0lagglagg (WAN HA DHCP)'),
                 'ifdescr' => gettext('WAN HA DHCP'),
-                'name' => 'wanha0lagg',
+                'name' => 'wanha0lagglagg',
             ],
         ],
     ]];
@@ -101,7 +101,7 @@ function wan_ha_dhcp_xmlrpc_sync()
 
 function wan_ha_dhcp_prepare_device($device)
 {
-    if ($device !== 'wanha0lagg') {
+    if ($device !== 'wanha0lagglagg') {
         return null;
     }
 
