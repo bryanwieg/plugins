@@ -6,6 +6,7 @@
 - **Package name:** `os-wan-ha-dhcp`
 - **Initial platform:** OPNsense 26.7 and later
 - **Scope:** IPv4 DHCP WAN high availability for an existing active/passive OPNsense CARP cluster.
+- **Current implementation:** this branch contains an experimental, non-activating plugin scaffold with MVC configuration, device registration, read-only HA discovery, MAC generation, and a pure Python desired-state/command-planning engine. Automatic carrier mutation remains disabled pending Prototype Gates A-C.
 
 ## 1. Problem statement
 
