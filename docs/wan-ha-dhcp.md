@@ -394,14 +394,22 @@ When the preferred node recovers while a healthy peer is already MASTER:
 4. If the current MASTER disappears during the hold, the recovering node MUST be able to take MASTER immediately; the delay must not create an avoidable outage.
 5. Any new local health failure or reboot resets the hold timer.
 
-### 15.2 Mechanism is prototype-gated
+### 15.2 Leading mechanism: temporary preemption suppression
 
-Two mechanisms require testing:
+FreeBSD 15 CARP source makes temporary preemption suppression the leading mechanism:
 
-- Temporary runtime suppression of CARP preemption while preserving emergency takeover.
-- Native CARP service-health/demotion hold.
+- In BACKUP state, `net.inet.carp.preempt=1` permits a faster local CARP instance to treat a slower living MASTER as down and preempt it.
+- With `net.inet.carp.preempt=0`, that early preemption path is skipped.
+- Ordinary MASTER timeout processing remains independent of the preemption check, so loss of advertisements can still promote the BACKUP.
 
-Prototype Gate C must determine which mechanism satisfies all requirements with the smallest dependency surface. The plugin MUST preserve the administrator's baseline native preemption configuration rather than forcing it globally.
+OPNsense 26.7 maps its native "Disable preempt" setting onto the same sysctl at startup. The plugin MUST preserve that administrator baseline:
+
+- If native preemption is disabled, the plugin never enables it; configured failback delay is effectively superseded by the stricter native policy.
+- If native preemption is enabled, the plugin may temporarily set runtime preemption to `0` during recovery hold and restore `1` only after the hold expires or the node becomes MASTER.
+- Periodic reconciliation must reassert the temporary hold if another OPNsense lifecycle action restores the baseline early.
+- Loss/restart of the controller while preemption is suppressed is availability-safe: it may delay automatic failback, but it must not prevent normal MASTER-timeout takeover.
+
+Prototype Gate C still MUST validate these source-backed semantics on OPNsense 26.7 and confirm no native maintenance/demotion interaction is broken. Native CARP service-health remains the mechanism for **local WAN eligibility failures**, not the preferred failback timer mechanism.
 
 ## 16. Eventing and reconciliation
 
