@@ -89,6 +89,13 @@ class MetadataTests(unittest.TestCase):
         self.assertIn("'exclude' => $exclude", integration)
         self.assertIn("(string)$interface->if === 'wanha0lagg'", integration)
 
+    def test_reserved_current_carrier_has_runtime_fallback(self):
+        local_model = (PLUGIN / "src/opnsense/mvc/app/models/OPNsense/WanHaDhcp/Local.php").read_text()
+        status = (PLUGIN / "src/opnsense/mvc/app/controllers/OPNsense/WanHaDhcp/Api/StatusController.php").read_text()
+        self.assertIn("if ($group === null)", local_model)
+        self.assertIn("$runtime['is_physical']", local_model)
+        self.assertIn("current WAN HA carrier", status)
+
     def test_uninstall_guard_uses_stable_device_name(self):
         pre = (PLUGIN / "+PRE_DEINSTALL.pre").read_text()
         post = (PLUGIN / "+POST_DEINSTALL.post").read_text()
