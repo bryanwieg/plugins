@@ -57,6 +57,11 @@ class Shared extends BaseModel
                 gettext('wanha0lagg must exist as a LAGG interface before WAN HA DHCP can be enabled.'),
                 $this->enabled->getInternalXMLTagName()
             ));
+        } elseif (!is_file('/var/run/wan-ha-dhcp/device.wanha0lagg')) {
+            $messages->appendMessage(new Message(
+                gettext('wanha0lagg exists but is not marked as a device created by this plugin in the current boot.'),
+                $this->enabled->getInternalXMLTagName()
+            ));
         } elseif ($ifconfig['wanha0lagg']['laggproto'] !== 'failover') {
             $messages->appendMessage(new Message(
                 gettext('wanha0lagg must use the failover LAGG protocol.'),
