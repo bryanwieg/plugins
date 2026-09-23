@@ -74,6 +74,36 @@ class Local extends BaseModel
         return $blocked;
     }
 
+    public static function carrierRuntimeEligibility($carrier, array $devices, array $ifconfig)
+    {
+        $group = $devices[$carrier]['optgroup'] ?? null;
+        if (!in_array($group, ['hardware', 'vlan'], true)) {
+            return gettext('is not an eligible physical Ethernet or VLAN interface');
+        }
+
+        $runtime = $ifconfig[$carrier] ?? null;
+        if (empty($runtime)) {
+            return gettext('does not currently exist in the FreeBSD interface inventory');
+        }
+
+        if (!empty($runtime['laggproto']) || !empty($runtime['members']) || !empty($runtime['tunnel']) || !empty($runtime['vxlan'])) {
+            return gettext('is already a virtual aggregation, bridge, or tunnel-like interface');
+        }
+
+        if ($group === 'vlan' && empty($runtime['vlan'])) {
+            return gettext('is not currently reported as an L2 VLAN interface');
+        }
+
+        if ($group === 'hardware') {
+            $mac = strtolower((string)($runtime['macaddr'] ?? ''));
+            if (empty($mac) || $mac === '00:00:00:00:00:00' || !filter_var($mac, FILTER_VALIDATE_MAC)) {
+                return gettext('does not expose a usable Ethernet MAC address');
+            }
+        }
+
+        return null;
+    }
+
     public function performValidation($validateFullModel = false)
     {
         $messages = parent::performValidation($validateFullModel);
@@ -98,11 +128,16 @@ class Local extends BaseModel
             return $messages;
         }
 
-        $devices = json_decode((new Backend())->configdRun('interface list assign-opts'), true) ?? [];
-        $group = $devices[$carrier]['optgroup'] ?? null;
-        if (!in_array($group, ['hardware', 'vlan'], true)) {
+        $backend = new Backend();
+        $devices = json_decode($backend->configdRun('interface list assign-opts'), true) ?? [];
+        $ifconfig = json_decode($backend->configdRun('interface list ifconfig'), true) ?? [];
+        $runtimeReason = self::carrierRuntimeEligibility($carrier, $devices, $ifconfig);
+        if ($runtimeReason !== null) {
             $messages->appendMessage(new Message(
-                gettext('Select an eligible physical Ethernet or VLAN carrier reported by OPNsense.'),
+                sprintf(
+                    gettext('The selected carrier cannot be used because it %s.'),
+                    $runtimeReason
+                ),
                 $this->carrier->getInternalXMLTagName()
             ));
             return $messages;
