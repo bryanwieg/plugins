@@ -76,6 +76,17 @@ class DesiredStateTests(unittest.TestCase):
         desired = core.desired_state(self.settings(), self.observed())
         self.assertEqual(desired.attachment, core.DesiredAttachment.ATTACHED)
 
+    def test_carp_disabled_fences_even_with_master_states(self):
+        observed = self.observed()
+        observed = core.ObservedState(
+            carp_states=observed.carp_states,
+            carp_allowed=False,
+            carrier=observed.carrier,
+            wanha=observed.wanha,
+        )
+        desired = core.desired_state(self.settings(), observed)
+        self.assertEqual(desired.attachment, core.DesiredAttachment.FENCED)
+
     def test_backup_fences(self):
         desired = core.desired_state(self.settings(), self.observed(states=("BACKUP",)))
         self.assertEqual(desired.attachment, core.DesiredAttachment.FENCED)
