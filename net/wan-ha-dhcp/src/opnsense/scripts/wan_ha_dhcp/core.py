@@ -408,30 +408,22 @@ def evaluate_failback(
     now: float,
     delay_seconds: int,
     local_is_master: bool,
-    peer_master_present: bool,
     local_healthy: bool,
     state: FailbackState,
 ) -> FailbackDecision:
     """
     Evaluate policy only; it does not manipulate CARP.
 
-    A recovered BACKUP waits before it may preempt a living MASTER.  Native
-    CARP advskew still decides whether it would preempt at all, so the plugin
-    does not need its own primary/secondary role setting.  The hold must never
-    block emergency takeover after the current MASTER disappears.
+    A recovered BACKUP waits before it may preempt. Native CARP advskew still
+    decides whether it would preempt at all, so the plugin does not need its
+    own primary/secondary role setting or peer liveness detector. If the peer
+    disappears, native CARP promotes the local node; local_is_master then makes
+    the hold immediately irrelevant.
     """
     delay = max(0, int(delay_seconds))
 
     if local_is_master:
         return FailbackDecision(FailbackState(), True, 0.0, "local node is already MASTER")
-
-    if not peer_master_present:
-        return FailbackDecision(
-            FailbackState(),
-            True,
-            0.0,
-            "no living peer MASTER; emergency takeover must not be delayed",
-        )
 
     if not local_healthy:
         return FailbackDecision(
