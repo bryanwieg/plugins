@@ -41,6 +41,7 @@ class InterfaceSnapshot:
     link_up: bool = False
     mac: str | None = None
     lagg_protocol: str | None = None
+    mtu: int | None = None
     lagg_members: tuple[str, ...] = ()
 
 
@@ -57,6 +58,7 @@ class Settings:
     enabled: bool
     carrier: str
     shared_mac: str
+    managed_mtu: int | None = None
 
 
 @dataclass(frozen=True)
@@ -211,6 +213,17 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         )
         return plan
 
+    if wanha.exists and wanha.lagg_protocol != "failover":
+        plan.desired = DesiredState(
+            desired.role,
+            DesiredAttachment.FENCED,
+            f"wanha0 uses unsupported LAGG protocol {wanha.lagg_protocol}",
+        )
+        plan.warnings.append(
+            "refusing to mutate wanha0 unless its LAGG protocol is failover"
+        )
+        return plan
+
     members = tuple(wanha.lagg_members)
     member_present = settings.carrier in members
     foreign_members = tuple(member for member in members if member != settings.carrier)
@@ -238,6 +251,7 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
     already_correct = (
         wanha.exists
         and wanha.up
+        and wanha.lagg_protocol == "failover"
         and members == (settings.carrier,)
         and wanha.mac is not None
         and wanha.mac.lower() == shared_mac
@@ -280,6 +294,22 @@ def plan_reconcile(settings: Settings, observed: ObservedState) -> Plan:
         )
 
     if not member_present:
+        if (
+            settings.managed_mtu is not None
+            and observed.carrier is not None
+            and observed.carrier.mtu != settings.managed_mtu
+        ):
+            plan.commands.append(
+                Command(
+                    (
+                        "/sbin/ifconfig",
+                        settings.carrier,
+                        "mtu",
+                        str(settings.managed_mtu),
+                    ),
+                    "align carrier MTU with the native managed WAN before LAGG attachment",
+                )
+            )
         if observed.carrier is not None and not observed.carrier.up:
             plan.commands.append(
                 Command(
@@ -405,6 +435,7 @@ def parse_interface_snapshot(name: str, ifconfig_text: str) -> InterfaceSnapshot
     link_up = False
     mac: str | None = None
     lagg_protocol: str | None = None
+    mtu: int | None = None
     members: list[str] = []
     exists = False
 
@@ -412,6 +443,9 @@ def parse_interface_snapshot(name: str, ifconfig_text: str) -> InterfaceSnapshot
         line = raw.rstrip()
         if line.startswith(f"{name}:"):
             exists = True
+            mtu_match = re.search(r"\bmtu\s+(\d+)", line)
+            if mtu_match:
+                mtu = int(mtu_match.group(1))
             match = re.search(r"<([^>]*)>", line)
             flags = set(match.group(1).split(",")) if match else set()
             up = "UP" in flags
@@ -439,5 +473,6 @@ def parse_interface_snapshot(name: str, ifconfig_text: str) -> InterfaceSnapshot
         link_up=link_up,
         mac=mac,
         lagg_protocol=lagg_protocol,
+        mtu=mtu,
         lagg_members=tuple(members),
     )
