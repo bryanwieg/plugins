@@ -314,6 +314,33 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan.commands[0].argv, ("/sbin/ifconfig", "ix0", "mtu", "1400"))
         self.assertEqual(plan.commands[1].argv[-2:], ("laggport", "ix0"))
 
+    def test_active_explicit_mtu_drift_is_reconciled_on_lagg(self):
+        settings = core.Settings(True, "ix0", "02:11:22:33:44:55", managed_mtu=1400)
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=1500),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=True,
+                link_up=True,
+                mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
+                mtu=1500,
+                lagg_members=("ix0",),
+            ),
+        )
+        plan = core.plan_reconcile(settings, observed)
+        argv = [command.argv for command in plan.commands]
+        self.assertIn(
+            ("/sbin/ifconfig", core.WANHA_DEVICE, "mtu", "1400"),
+            argv,
+        )
+        self.assertNotIn(
+            ("/sbin/ifconfig", core.WANHA_DEVICE, "-laggport", "ix0"),
+            argv,
+        )
+
     def test_down_carrier_is_brought_up_before_lagg_attachment(self):
         observed = core.ObservedState(
             carp_states=("MASTER",),
