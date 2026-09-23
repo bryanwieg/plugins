@@ -44,6 +44,15 @@ $(document).ready(function() {
             if (data.managed && data.managed.spoof_mac) {
                 $("#existingMac").data("mac", data.managed.spoof_mac).show();
             }
+
+            const warnings = $("#readinessWarnings");
+            warnings.empty();
+            (data.warnings || []).forEach(function(message) {
+                warnings.append($("<li>").text(message));
+            });
+            if ((data.warnings || []).length === 0) {
+                warnings.append($("<li>").text("{{ lang._('No migration-readiness warnings detected.') }}"));
+            }
         }
     });
 
@@ -123,6 +132,8 @@ $(document).ready(function() {
                 <tr><td>{{ lang._('XMLRPC target') }}</td><td id="xmlrpcTarget">...</td></tr>
                 <tr><td>{{ lang._('WAN HA DHCP config sync') }}</td><td id="pluginSync">...</td></tr>
             </table>
+            <h5>{{ lang._('Readiness warnings') }}</h5>
+            <ul id="readinessWarnings"><li>...</li></ul>
         </div>
     </div>
 
