@@ -41,6 +41,16 @@ $(document).ready(function() {
             $("#pfsyncPeer").text((data.ha && data.ha.pfsync_peer) ? data.ha.pfsync_peer : "{{ lang._('Not configured') }}");
             $("#xmlrpcTarget").text((data.ha && data.ha.xmlrpc_target) ? data.ha.xmlrpc_target : "{{ lang._('Not configured') }}");
             $("#pluginSync").text((data.ha && data.ha.plugin_sync_enabled) ? "{{ lang._('Enabled') }}" : "{{ lang._('Not selected') }}");
+            $("#preemption").text((data.ha && data.ha.preemption_enabled) ? "{{ lang._('Enabled') }}" : "{{ lang._('Disabled') }}");
+            $("#pfsyncVersion").text((data.ha && data.ha.pfsync_version) ? data.ha.pfsync_version : "?");
+            $("#pfsyncDefer").text((data.ha && data.ha.pfsync_defer === "1") ? "{{ lang._('Enabled') }}" : "{{ lang._('Disabled') }}");
+            $("#localCarrier").text((data.plugin && data.plugin.local_carrier) ? data.plugin.local_carrier : "{{ lang._('Not configured') }}");
+            $("#carrierStatus").text((data.plugin && data.plugin.carrier_status) ? data.plugin.carrier_status : "?");
+            $("#carrierMac").text((data.plugin && data.plugin.carrier_mac) ? data.plugin.carrier_mac : "?");
+            $("#wanhaStatus").text((data.plugin && data.plugin.wanha_status) ? data.plugin.wanha_status : "{{ lang._('Not present') }}");
+            $("#wanhaProtocol").text((data.plugin && data.plugin.wanha_protocol) ? data.plugin.wanha_protocol : "?");
+            $("#wanhaMac").text((data.plugin && data.plugin.wanha_mac) ? data.plugin.wanha_mac : "?");
+            $("#wanhaMembers").text((data.plugin && data.plugin.wanha_members) ? data.plugin.wanha_members.join(", ") : "{{ lang._('None') }}");
             if (data.managed && data.managed.spoof_mac) {
                 $("#existingMac").data("mac", data.managed.spoof_mac).show();
             }
@@ -127,10 +137,20 @@ $(document).ready(function() {
                 <tr><td>{{ lang._('Managed WAN IPv4 type') }}</td><td id="managedIPv4">...</td></tr>
                 <tr><td>{{ lang._('Managed WAN IPv6 type') }}</td><td id="managedIPv6">...</td></tr>
                 <tr><td>{{ lang._('Native WAN spoof MAC') }}</td><td id="nativeSpoofMac">...</td></tr>
+                <tr><td>{{ lang._('CARP preemption') }}</td><td id="preemption">...</td></tr>
                 <tr><td>{{ lang._('pfsync interface') }}</td><td id="pfsyncInterface">...</td></tr>
                 <tr><td>{{ lang._('pfsync peer') }}</td><td id="pfsyncPeer">...</td></tr>
+                <tr><td>{{ lang._('pfsync version') }}</td><td id="pfsyncVersion">...</td></tr>
+                <tr><td>{{ lang._('pfsync defer') }}</td><td id="pfsyncDefer">...</td></tr>
                 <tr><td>{{ lang._('XMLRPC target') }}</td><td id="xmlrpcTarget">...</td></tr>
                 <tr><td>{{ lang._('WAN HA DHCP config sync') }}</td><td id="pluginSync">...</td></tr>
+                <tr><td>{{ lang._('Local carrier') }}</td><td id="localCarrier">...</td></tr>
+                <tr><td>{{ lang._('Local carrier status') }}</td><td id="carrierStatus">...</td></tr>
+                <tr><td>{{ lang._('Local carrier MAC') }}</td><td id="carrierMac">...</td></tr>
+                <tr><td>{{ lang._('wanha0lagg status') }}</td><td id="wanhaStatus">...</td></tr>
+                <tr><td>{{ lang._('wanha0lagg protocol') }}</td><td id="wanhaProtocol">...</td></tr>
+                <tr><td>{{ lang._('wanha0lagg effective MAC') }}</td><td id="wanhaMac">...</td></tr>
+                <tr><td>{{ lang._('wanha0lagg members') }}</td><td id="wanhaMembers">...</td></tr>
             </table>
             <h5>{{ lang._('Readiness warnings') }}</h5>
             <ul id="readinessWarnings"><li>...</li></ul>
