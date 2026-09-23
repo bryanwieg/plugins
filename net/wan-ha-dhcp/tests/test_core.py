@@ -275,6 +275,27 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan.desired.attachment, core.DesiredAttachment.FENCED)
         self.assertEqual(plan.commands, [])
 
+    def test_unset_mtu_does_not_copy_empty_lagg_default_to_carrier(self):
+        settings = core.Settings(True, "ix0", "02:11:22:33:44:55", managed_mtu=None)
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=True, link_up=True, mtu=9000),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=False,
+                lagg_protocol="failover",
+                mtu=1500,
+                lagg_members=(),
+            ),
+        )
+        plan = core.plan_reconcile(settings, observed)
+        self.assertNotIn(
+            ("/sbin/ifconfig", "ix0", "mtu", "1500"),
+            [command.argv for command in plan.commands],
+        )
+        self.assertEqual(plan.commands[0].argv[-2:], ("laggport", "ix0"))
+
     def test_custom_mtu_is_applied_to_carrier_before_attachment(self):
         settings = core.Settings(True, "ix0", "02:11:22:33:44:55", managed_mtu=1400)
         observed = core.ObservedState(
