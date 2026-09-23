@@ -621,7 +621,7 @@ Only add abstractions that directly serve a requirement in this document.
 
 ## 25. Prototype gates before architecture freeze
 
-Implementation MUST begin with focused prototypes. Exploratory code/tests stay outside the final diff unless they protect a durable contract per repository policy.
+Production dataplane mutation MUST remain gated by focused prototypes. Non-activating package/UI scaffolding and pure decision tests may precede those prototypes when they encode durable requirements, but exploratory mutation code must not be treated as production implementation until the relevant gate passes.
 
 ### Gate A — stable virtual WAN and hard fencing
 
@@ -631,7 +631,9 @@ Prove on OPNsense 26.7:
 - A single-member LAGG can accept representative physical and virtual Ethernet carriers and, if required, an L2 VLAN carrier.
 - Member removal creates a real L2 fence while leaving the logical WAN object present.
 - Member re-add works repeatedly.
-- The shared MAC can be applied deterministically without the member/lagg MAC rules overwriting it unexpectedly.
+- The shared MAC can be applied deterministically without the member/LAGG MAC rules overwriting it unexpectedly.
+- Removing the final LAGG member restores the member's saved native MAC as current FreeBSD source specifies.
+- An administratively fenced BACKUP carrier still exposes a reliable physical/media-link health signal suitable for local eligibility checks.
 - Reboot recreates the abstraction detached by default.
 - OPNsense can assign the logical WAN to the abstraction normally.
 
@@ -651,7 +653,7 @@ Prove:
 
 Compare candidate mechanisms and prove:
 
-- A recovered preferred node does not preempt a living MASTER before `failback_delay` expires.
+- A recovered node that native CARP would otherwise preempt from does not displace a living MASTER before `failback_delay` expires; preference remains defined only by native CARP advskew/preemption semantics.
 - If the living MASTER fails during the delay, the recovering node takes over promptly.
 - Existing administrator preemption settings are preserved.
 - Reboot/restart during hold resets/reconstructs safely.
