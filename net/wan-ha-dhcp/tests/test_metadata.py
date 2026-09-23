@@ -31,6 +31,32 @@ class MetadataTests(unittest.TestCase):
         self.assertIn("'section' => 'OPNsense.WanHaDhcpShared'", integration)
         self.assertNotIn("'section' => 'OPNsense.WanHaDhcpLocal'", integration)
 
+    def test_virtual_device_name_avoids_core_lagg_collision(self):
+        # OPNsense 26.7 legacy virtual classification splits names on digits
+        # and looks for known tokens such as "lagg".  The plugin name must
+        # contain that token after a digit without beginning with "lagg".
+        device = "wanha0lagg"
+        import re
+        tokens = [token for token in re.split(r"\d+", device) if token]
+        self.assertIn("lagg", tokens)
+        self.assertFalse(device.startswith("lagg"))
+
+    def test_device_registration_is_fail_closed(self):
+        integration = (PLUGIN / "src/etc/inc/plugins.inc.d/wan_ha_dhcp.inc").read_text()
+        self.assertIn("'pattern' => '^wanha[0-9]+lagg
+    unittest.main()
+", integration)
+        self.assertIn("'spoofmac' => false", integration)
+        self.assertIn("'volatile' => true", integration)
+        self.assertIn("'name' => 'wanha0lagg'", integration)
+
+    def test_uninstall_guard_uses_stable_device_name(self):
+        pre = (PLUGIN / "+PRE_DEINSTALL.pre").read_text()
+        post = (PLUGIN / "+POST_DEINSTALL.post").read_text()
+        self.assertIn("wanha0lagg", pre)
+        self.assertIn("wanha0lagg", post)
+        self.assertNotIn("<if>wanha0</if>", pre)
+
 
 if __name__ == "__main__":
     unittest.main()
