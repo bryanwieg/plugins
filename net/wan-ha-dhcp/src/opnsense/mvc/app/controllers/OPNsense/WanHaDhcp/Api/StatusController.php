@@ -139,6 +139,11 @@ class StatusController extends ApiControllerBase
             $warnings[] = gettext('The configured shared MAC is in the CARP/VRRP virtual-router range and may be rejected by access networks.');
         }
 
+        $localCarrier = trim((string)$local->carrier);
+        $carrierRuntime = !empty($interfaces[$localCarrier]) ? $interfaces[$localCarrier] : [];
+        $wanhaRuntime = !empty($interfaces['wanha0lagg']) ? $interfaces['wanha0lagg'] : [];
+        $wanhaMembers = !empty($wanhaRuntime['laggport']) ? array_keys($wanhaRuntime['laggport']) : [];
+
         return [
             'global_role' => $globalRole,
             'warnings' => $warnings,
@@ -153,6 +158,7 @@ class StatusController extends ApiControllerBase
                 'pfsync_defer' => (string)$hasync->pfsyncdefer,
                 'xmlrpc_target' => (string)$hasync->synchronizetoip,
                 'plugin_sync_enabled' => in_array('wan-ha-dhcp', $syncItems, true),
+                'preemption_enabled' => empty((string)$hasync->disablepreempt),
             ],
             'managed' => [
                 'name' => $managedName,
@@ -167,7 +173,17 @@ class StatusController extends ApiControllerBase
                 'enabled' => !empty((string)$shared->enabled),
                 'shared_mac' => (string)$shared->shared_mac,
                 'failback_delay' => (string)$shared->failback_delay,
-                'local_carrier' => (string)$local->carrier,
+                'local_carrier' => $localCarrier,
+                'carrier_status' => (string)($carrierRuntime['status'] ?? ''),
+                'carrier_mac' => (string)($carrierRuntime['macaddr'] ?? ''),
+                'carrier_hw_mac' => (string)($carrierRuntime['macaddr_hw'] ?? ''),
+                'carrier_mtu' => (string)($carrierRuntime['mtu'] ?? ''),
+                'wanha_exists' => !empty($wanhaRuntime),
+                'wanha_status' => (string)($wanhaRuntime['status'] ?? ''),
+                'wanha_mac' => (string)($wanhaRuntime['macaddr'] ?? ''),
+                'wanha_mtu' => (string)($wanhaRuntime['mtu'] ?? ''),
+                'wanha_protocol' => (string)($wanhaRuntime['laggproto'] ?? ''),
+                'wanha_members' => $wanhaMembers,
             ],
         ];
     }
