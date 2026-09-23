@@ -36,6 +36,16 @@ def read_ifconfig() -> str:
     ).stdout
 
 
+def read_carp_allowed() -> bool:
+    result = subprocess.run(
+        ["/sbin/sysctl", "-n", "net.inet.carp.allow"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() == "1"
+
+
 def cmd_generate_mac(_args: argparse.Namespace) -> int:
     print(generate_private_mac())
     return 0
@@ -58,11 +68,18 @@ def cmd_status(args: argparse.Namespace) -> int:
         carrier=args.carrier,
         shared_mac=args.shared_mac,
     )
-    observed = ObservedState(carp_states=carp_states, carrier=carrier, wanha=wanha)
+    carp_allowed = read_carp_allowed()
+    observed = ObservedState(
+        carp_states=carp_states,
+        carp_allowed=carp_allowed,
+        carrier=carrier,
+        wanha=wanha,
+    )
     plan = plan_reconcile(settings, observed)
 
     payload = {
         "carp_states": list(carp_states),
+        "carp_allowed": carp_allowed,
         "global_role": plan.desired.role.value,
         "desired_attachment": plan.desired.attachment.value,
         "reason": plan.desired.reason,
