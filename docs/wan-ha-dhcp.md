@@ -280,6 +280,8 @@ Only the active node may expose the shared WAN MAC to the ISP-facing segment.
 
 The shared MAC is deliberately separate from CARP's standardized virtual MAC and from either node's hardware MAC.
 
+Current FreeBSD `lagg(4)` saves each member's original link-layer address when the port joins a LAGG and restores that saved address when the port is removed. The design therefore SHOULD rely on the kernel's normal LAGG detach semantics instead of maintaining a second persistent "native MAC" database. Prototype Gate A MUST still verify this behavior on the supported OPNsense/FreeBSD build.
+
 The plugin MUST:
 
 - Validate the shared MAC before enablement.
@@ -696,8 +698,8 @@ At minimum test:
 
 The following are blocking correctness requirements:
 
-1. **Single-owner invariant:** at most one node is deliberately attached to the ISP carrier at any time.
-2. **Fail-closed invariant:** uncertainty never causes attachment.
+1. **Single-owner invariant under a non-partitioned CARP cluster:** the plugin MUST never deliberately attach a node that is not locally an unequivocal global CARP MASTER. As with ordinary two-node CARP, a network partition that causes both nodes to independently enter MASTER cannot be perfectly fenced without an external witness/fencing mechanism; the plugin MUST document this residual split-brain risk rather than claim to eliminate it.
+2. **Fail-closed invariant:** local uncertainty never causes attachment.
 3. **Fence-first invariant:** demotion detaches L2 before cleanup.
 4. **No second election:** plugin follows CARP; it does not override CARP role decisions.
 5. **No WAN-health flapping:** common Internet/gateway failure is not an automatic role trigger.
