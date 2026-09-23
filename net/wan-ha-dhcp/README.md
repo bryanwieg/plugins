@@ -12,7 +12,7 @@ Implemented so far:
 - OPNsense plugin package skeleton.
 - Separate cluster-shared and node-local configuration models.
 - XMLRPC registration of the shared model only.
-- Registration of the stable `wanha0` virtual WAN candidate.
+- Registration of the stable `wanha0lagg` virtual WAN candidate.
 - Carrier candidate discovery from OPNsense hardware/VLAN assignment options.
 - Secure locally administered unicast MAC generation.
 - Pure Python global-CARP-role reduction and fail-closed desired-state logic.
@@ -27,10 +27,10 @@ Installation must not be treated as approval to migrate a production WAN.
 Automatic CARP hooks and automatic command execution are deliberately absent.
 
 Intentional package removal is guarded while any logical interface is still
-assigned to `wanha0`; the guard explicitly permits normal package upgrades.
+assigned to `wanha0lagg`; the guard explicitly permits normal package upgrades.
 
 The only plugin-side interface creation currently proposed by the integration
-scaffold is an **empty/detached** `wanha0` LAGG candidate when OPNsense asks
+scaffold is an **empty/detached** `wanha0lagg` LAGG candidate when OPNsense asks
 the registered device to be prepared.  Gate A must validate that behavior on
 OPNsense 26.7 before runtime ownership code is enabled.
 
@@ -63,7 +63,7 @@ includes:
 - all observed CARP states;
 - derived global role;
 - desired attachment state;
-- carrier and `wanha0` observations;
+- carrier and `wanha0lagg` observations;
 - the provisional command plan;
 - warnings.
 
