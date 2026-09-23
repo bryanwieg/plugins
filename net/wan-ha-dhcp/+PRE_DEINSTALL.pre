@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Refuse an intentional uninstall while an OPNsense logical interface still
+# depends on wanha0.  Package upgrades run the old pre-deinstall script too;
+# PKG_UPGRADE explicitly distinguishes that safe lifecycle path.
+if [ -n "${PKG_UPGRADE:-}" ]; then
+    exit 0
+fi
+
+config="${PKG_ROOTDIR:-}/conf/config.xml"
+if [ -r "${config}" ] && grep -Eq '<if>[[:space:]]*wanha0[[:space:]]*</if>' "${config}"; then
+    echo "os-wan-ha-dhcp: refusing removal while wanha0 is still assigned." >&2
+    echo "Reassign the managed OPNsense interface away from wanha0, apply the change, then remove the plugin." >&2
+    exit 1
+fi
+
+exit 0
