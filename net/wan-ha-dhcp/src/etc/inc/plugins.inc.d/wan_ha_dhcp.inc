@@ -44,6 +44,10 @@ function wan_ha_dhcp_prepare_device($device)
         return null;
     }
 
+    $runtime_dir = '/var/run/wan-ha-dhcp';
+    $ownership_marker = $runtime_dir . '/device.wanha0lagg';
+    $created = false;
+
     /*
      * Prototype Gate A owns the final abstraction choice and command ordering.
      * Creating a detached LAGG is intentionally the only dataplane mutation in
@@ -53,7 +57,30 @@ function wan_ha_dhcp_prepare_device($device)
         if (legacy_interface_create('lagg', $device) === null) {
             return null;
         }
+        $created = true;
         mwexecf('/sbin/ifconfig %s laggproto failover', [$device]);
+
+        if (!is_dir($runtime_dir) && !mkdir($runtime_dir, 0755, true)) {
+            log_msg('WAN HA DHCP could not create its runtime directory', LOG_ERR);
+            legacy_interface_destroy($device);
+            return null;
+        }
+        if (file_put_contents($ownership_marker, $device . PHP_EOL, LOCK_EX) === false) {
+            log_msg('WAN HA DHCP could not record ownership of its virtual device', LOG_ERR);
+            legacy_interface_destroy($device);
+            return null;
+        }
+    } elseif (!is_file($ownership_marker)) {
+        /*
+         * A same-name device not created by this plugin in the current boot is
+         * an ownership collision. Never assume it is safe merely because it is
+         * also a failover LAGG.
+         */
+        log_msg(sprintf(
+            'WAN HA DHCP refused existing device %s because its ownership marker is missing',
+            $device
+        ), LOG_ERR);
+        return null;
     }
 
     $details = legacy_interfaces_details($device);
