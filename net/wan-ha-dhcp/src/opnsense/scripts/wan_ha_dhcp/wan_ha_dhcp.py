@@ -48,6 +48,45 @@ def read_carp_admin() -> tuple[bool, bool]:
     return bool(int(payload.get("allow", 0))), bool(payload.get("maintenancemode", False))
 
 
+def pluginctl_get(path: str) -> dict:
+    result = subprocess.run(
+        ["/usr/local/sbin/pluginctl", "-g", path],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return {}
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def load_configured_settings() -> tuple[Settings, str, dict]:
+    shared = pluginctl_get("OPNsense.WanHaDhcpShared")
+    local = pluginctl_get("OPNsense.WanHaDhcpLocal")
+
+    managed_name = str(shared.get("managed_interface") or "wan")
+    managed = pluginctl_get(f"interfaces.{managed_name}")
+
+    mtu = managed.get("mtu")
+    try:
+        managed_mtu = int(mtu) if str(mtu).strip() else None
+    except (TypeError, ValueError):
+        managed_mtu = None
+
+    settings = Settings(
+        enabled=str(shared.get("enabled", "0")) == "1",
+        carrier=str(local.get("carrier") or ""),
+        shared_mac=str(shared.get("shared_mac") or ""),
+        managed_by_wanha=str(managed.get("if") or "") == WANHA_DEVICE,
+        managed_mtu=managed_mtu,
+    )
+    return settings, managed_name, managed
+
+
 def cmd_generate_mac(_args: argparse.Namespace) -> int:
     print(generate_private_mac())
     return 0
@@ -60,18 +99,28 @@ def cmd_validate_mac(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
+    if args.from_config:
+        settings, managed_name, managed_config = load_configured_settings()
+        config_source = "opnsense"
+    else:
+        if not args.carrier or not args.shared_mac:
+            raise SystemExit("--carrier and --shared-mac are required unless --from-config is used")
+        settings = Settings(
+            enabled=args.enabled,
+            carrier=args.carrier,
+            shared_mac=args.shared_mac,
+            managed_by_wanha=args.managed_by_wanha,
+            managed_mtu=args.mtu,
+        )
+        managed_name = None
+        managed_config = {}
+        config_source = "arguments"
+
     data = read_ifconfig()
     carp_states = parse_carp_states(data)
-    carrier = parse_interface_snapshot(args.carrier, data)
+    carrier = parse_interface_snapshot(settings.carrier, data)
     wanha = parse_interface_snapshot(WANHA_DEVICE, data)
 
-    settings = Settings(
-        enabled=args.enabled,
-        carrier=args.carrier,
-        shared_mac=args.shared_mac,
-        managed_by_wanha=args.managed_by_wanha,
-        managed_mtu=args.mtu,
-    )
     carp_allowed, carp_maintenance = read_carp_admin()
     observed = ObservedState(
         carp_states=carp_states,
@@ -84,6 +133,16 @@ def cmd_status(args: argparse.Namespace) -> int:
     plan = plan_reconcile(settings, observed)
 
     payload = {
+        "config_source": config_source,
+        "managed_interface": managed_name,
+        "managed_config": managed_config,
+        "settings": {
+            "enabled": settings.enabled,
+            "carrier": settings.carrier,
+            "shared_mac": settings.shared_mac,
+            "managed_by_wanha": settings.managed_by_wanha,
+            "managed_mtu": settings.managed_mtu,
+        },
         "carp_states": list(carp_states),
         "carp_allowed": carp_allowed,
         "carp_maintenance": carp_maintenance,
@@ -114,8 +173,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate.set_defaults(func=cmd_validate_mac)
 
     status = sub.add_parser("status", help="show observed state and dry-run reconcile plan")
-    status.add_argument("--carrier", required=True)
-    status.add_argument("--shared-mac", required=True)
+    status.add_argument(
+        "--from-config",
+        action="store_true",
+        help="load shared/local plugin settings and managed WAN settings through pluginctl",
+    )
+    status.add_argument("--carrier")
+    status.add_argument("--shared-mac")
     status.add_argument("--enabled", action="store_true")
     status.add_argument(
         "--managed-by-wanha",
