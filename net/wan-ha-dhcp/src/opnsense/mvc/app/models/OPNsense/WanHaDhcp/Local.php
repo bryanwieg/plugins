@@ -120,9 +120,9 @@ class Local extends BaseModel
             return $messages;
         }
 
-        if ($carrier === 'wanha0lagg') {
+        if ($carrier === 'wanha0lagglagg') {
             $messages->appendMessage(new Message(
-                gettext('wanha0lagg cannot be its own local carrier.'),
+                gettext('wanha0lagglagg cannot be its own local carrier.'),
                 $this->carrier->getInternalXMLTagName()
             ));
             return $messages;
