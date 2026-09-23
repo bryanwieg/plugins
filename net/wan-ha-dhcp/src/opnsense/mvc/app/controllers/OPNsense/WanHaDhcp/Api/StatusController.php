@@ -135,8 +135,11 @@ class StatusController extends ApiControllerBase
             }
         }
         $sharedMac = strtolower(trim((string)$shared->shared_mac));
-        if (str_starts_with($sharedMac, '00:00:5e:00:01:')) {
-            $warnings[] = gettext('The configured shared MAC is in the CARP/VRRP virtual-router range and may be rejected by access networks.');
+        if (
+            str_starts_with($sharedMac, '00:00:5e:00:01:') ||
+            str_starts_with($sharedMac, '00:00:5e:00:02:')
+        ) {
+            $warnings[] = gettext('The configured shared MAC is in a standardized VRRP/CARP virtual-router range and may be rejected by access networks.');
         }
 
         $localCarrier = trim((string)$local->carrier);
