@@ -145,6 +145,10 @@ class StatusController extends ApiControllerBase
         $carrierRuntime = !empty($interfaces[$localCarrier]) ? $interfaces[$localCarrier] : [];
         $wanhaRuntime = !empty($interfaces['wanha0lagg']) ? $interfaces['wanha0lagg'] : [];
         $wanhaMembers = !empty($wanhaRuntime['laggport']) ? array_keys($wanhaRuntime['laggport']) : [];
+        $wanhaOwned = is_file('/var/run/wan-ha-dhcp/device.wanha0lagg');
+        if (!empty($wanhaRuntime) && !$wanhaOwned) {
+            $warnings[] = gettext('wanha0lagg exists without the plugin runtime ownership marker; the controller will refuse to mutate it.');
+        }
 
         return [
             'global_role' => $globalRole,
@@ -181,6 +185,7 @@ class StatusController extends ApiControllerBase
                 'carrier_hw_mac' => (string)($carrierRuntime['macaddr_hw'] ?? ''),
                 'carrier_mtu' => (string)($carrierRuntime['mtu'] ?? ''),
                 'wanha_exists' => !empty($wanhaRuntime),
+                'wanha_owned' => $wanhaOwned,
                 'wanha_status' => (string)($wanhaRuntime['status'] ?? ''),
                 'wanha_mac' => (string)($wanhaRuntime['macaddr'] ?? ''),
                 'wanha_mtu' => (string)($wanhaRuntime['mtu'] ?? ''),
