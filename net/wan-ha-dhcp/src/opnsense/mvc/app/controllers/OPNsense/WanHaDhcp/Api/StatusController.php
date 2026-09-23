@@ -41,13 +41,41 @@ class StatusController extends ApiControllerBase
         return ['mac' => implode(':', str_split(bin2hex($bytes), 2))];
     }
 
+    private function reduceGlobalCarpRole(array $interfaces)
+    {
+        $states = [];
+
+        foreach ($interfaces as $details) {
+            foreach (($details['carp'] ?? []) as $carp) {
+                if (!empty($carp['status'])) {
+                    $states[] = strtoupper($carp['status']);
+                }
+            }
+        }
+
+        if (empty($states)) {
+            return 'INDETERMINATE';
+        }
+        if (in_array('BACKUP', $states, true)) {
+            return 'BACKUP';
+        }
+        foreach ($states as $state) {
+            if ($state !== 'MASTER') {
+                return 'INDETERMINATE';
+            }
+        }
+        return 'MASTER';
+    }
+
     public function environmentAction()
     {
         $backend = new Backend();
+        $interfaces = json_decode($backend->configdRun('interface list ifconfig'), true) ?? [];
 
         return [
+            'global_role' => $this->reduceGlobalCarpRole($interfaces),
             'carp' => json_decode($backend->configdRun('interface show carp'), true) ?? [],
-            'interfaces' => json_decode($backend->configdRun('interface list ifconfig'), true) ?? [],
+            'interfaces' => $interfaces,
             'pfsync' => json_decode($backend->configdRun('filter list pfsync json'), true) ?? [],
         ];
     }
