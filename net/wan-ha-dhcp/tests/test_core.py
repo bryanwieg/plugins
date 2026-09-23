@@ -179,6 +179,23 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan.commands, [])
         self.assertTrue(plan.warnings)
 
+    def test_down_carrier_is_brought_up_before_lagg_attachment(self):
+        observed = core.ObservedState(
+            carp_states=("MASTER",),
+            carrier=core.InterfaceSnapshot("ix0", exists=True, up=False, link_up=True),
+            wanha=core.InterfaceSnapshot(
+                core.WANHA_DEVICE,
+                exists=True,
+                up=False,
+                mac="02:11:22:33:44:55",
+                lagg_protocol="failover",
+                lagg_members=(),
+            ),
+        )
+        plan = core.plan_reconcile(self.settings(), observed)
+        self.assertEqual(plan.commands[0].argv, ("/sbin/ifconfig", "ix0", "up"))
+        self.assertEqual(plan.commands[1].argv[-2:], ("laggport", "ix0"))
+
     def test_promotion_attaches_before_mac_then_up(self):
         observed = core.ObservedState(
             carp_states=("MASTER",),
